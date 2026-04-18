@@ -1,4 +1,5 @@
 pub mod client;
+pub use client::{ClientError, SettledClient};
 
 // Re-export the verifier from settled-core so callers only need this crate.
 pub use settled_core::proof::{verify_consistency, verify_inclusion};

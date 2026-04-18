@@ -11,6 +11,8 @@ pub(crate) const CF_TREE: &str = "tree";
 pub(crate) const CF_HEADS: &str = "heads";
 pub(crate) const CF_INDEX: &str = "index";
 pub(crate) const CF_KEYS: &str = "keys";
+pub(crate) const CF_SETTLEDES: &str = "settledes";
+pub(crate) const CF_FINAL_HEADS: &str = "final_heads";
 
 const SCHEMA_VERSION_KEY: &[u8] = b"schema_version";
 const CURRENT_SCHEMA_VERSION: u32 = 1;
@@ -34,7 +36,7 @@ impl Db {
         db_opts.create_missing_column_families(true);
         db_opts.set_compression_type(DBCompressionType::Lz4);
 
-        let cf_names = [CF_LOG, CF_TREE, CF_HEADS, CF_INDEX, CF_KEYS];
+        let cf_names = [CF_LOG, CF_TREE, CF_HEADS, CF_INDEX, CF_KEYS, CF_SETTLEDES, CF_FINAL_HEADS];
         let cf_descriptors: Vec<ColumnFamilyDescriptor> = cf_names
             .iter()
             .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
@@ -93,5 +95,13 @@ impl Db {
 
     pub fn head_store(&self) -> crate::head_store::HeadStore {
         crate::head_store::HeadStore(self.0.clone())
+    }
+
+    pub fn settled_store(&self) -> crate::settled_store::SettledStore {
+        crate::settled_store::SettledStore(self.0.clone())
+    }
+
+    pub fn final_head_store(&self) -> crate::final_head_store::FinalHeadStore {
+        crate::final_head_store::FinalHeadStore(self.0.clone())
     }
 }

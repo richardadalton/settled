@@ -8,6 +8,7 @@ rocksdb = "0.22"
 prost = "0.13"
 thiserror = "1"
 settled-core = { path = "../settled-core" }
+ed25519-dalek = "2"
 
 [dev-dependencies]
 tempfile = "3"

@@ -2,8 +2,10 @@ pub mod proto {
     tonic::include_proto!("settled.v1");
 }
 
+pub mod admin;
 pub mod config;
 pub mod error;
+pub mod push;
 pub mod service;
 pub mod signer;
 pub mod state;

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use settled_core::merkle::MerkleTree;
-use settled_storage::{Db, HeadStore, LogStore, TreeStore};
+use settled_storage::{Db, FinalHeadStore, HeadStore, LogStore, SettledStore, TreeStore};
 
 use crate::config::Config;
 use crate::signer::{LocalSigner, Signer};
@@ -15,6 +15,8 @@ pub struct AppState {
     pub log: LogStore,
     pub tree: TreeStore,
     pub heads: HeadStore,
+    pub settled: SettledStore,
+    pub final_heads: FinalHeadStore,
     /// Serialises appends and keeps the in-memory MerkleTree consistent with the log.
     pub append_mu: Arc<Mutex<AppendState>>,
     pub signer: Arc<dyn Signer>,
@@ -49,6 +51,8 @@ impl AppState {
             log: db.log_store(),
             tree: db.tree_store(),
             heads: db.head_store(),
+            settled: db.settled_store(),
+            final_heads: db.final_head_store(),
             append_mu: Arc::new(Mutex::new(AppendState { merkle })),
             signer: Arc::new(signer),
             config,

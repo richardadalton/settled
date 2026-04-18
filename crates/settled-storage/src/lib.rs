@@ -1,18 +1,24 @@
 pub mod db;
 pub mod error;
+pub mod final_head_store;
 pub mod head_store;
 pub mod log_store;
+pub mod settled_store;
 pub mod tree_store;
 pub mod types;
+pub mod verify;
 
 mod proto;
 
 pub use db::Db;
 pub use error::{Error, Result};
+pub use final_head_store::FinalHeadStore;
 pub use head_store::HeadStore;
 pub use log_store::LogStore;
+pub use settled_store::SettledStore;
 pub use tree_store::TreeStore;
-pub use types::{LogEntry, SignedTreeHead};
+pub use types::{CounterSignature, FinalSTH, LogEntry, SettledRecord, SignedTreeHead};
+pub use verify::{verify_final_sth, verify_sth};
 
 #[cfg(test)]
 mod crash_recovery_tests {

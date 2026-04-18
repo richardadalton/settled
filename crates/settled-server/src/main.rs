@@ -5,16 +5,14 @@ use clap::Parser;
 use settled_server::proto::settled_log_server::SettledLogServer;
 use settled_server::{AppState, Config, SettledService};
 use tonic::transport::Server;
+use tokio::net::TcpListener;
 
 #[derive(Parser)]
 #[command(about = "Settled — tamper-evident audit log server")]
 struct Args {
-    /// Directory for the RocksDB database and default key location
     #[arg(long, default_value = "/var/lib/settled")]
     data_dir: PathBuf,
 
-    /// Path to the Ed25519 signing key (32-byte raw seed).
-    /// Defaults to <data_dir>/signing.key; generated on first run if absent.
     #[arg(long)]
     key_path: Option<PathBuf>,
 
@@ -22,9 +20,22 @@ struct Args {
     #[arg(long, default_value = "0.0.0.0:50051")]
     listen: SocketAddr,
 
-    /// Seconds between signed tree heads
+    /// HTTP admin API listen address
+    #[arg(long, default_value = "0.0.0.0:8080")]
+    admin_listen: SocketAddr,
+
     #[arg(long, default_value_t = 60)]
     sth_interval_secs: u64,
+
+    #[arg(long, default_value_t = 6)]
+    max_push_failures: u32,
+
+    #[arg(long, default_value_t = 5000)]
+    push_timeout_ms: u64,
+
+    /// Minimum counter-signatures for a FinalSTH (0 = disabled)
+    #[arg(long, default_value_t = 0)]
+    threshold: usize,
 }
 
 #[tokio::main]
@@ -40,15 +51,28 @@ async fn main() -> anyhow::Result<()> {
         data_dir: args.data_dir,
         key_path,
         listen: args.listen,
+        admin_listen: args.admin_listen,
         sth_interval_secs: args.sth_interval_secs,
+        max_push_failures: args.max_push_failures,
+        push_timeout_ms: args.push_timeout_ms,
+        threshold: args.threshold,
     };
 
     let state = AppState::build(config.clone()).await?;
 
     tokio::spawn(settled_server::sth_task::run(state.clone()));
 
-    tracing::info!("Listening on {}", config.listen);
+    // Launch HTTP admin server.
+    let admin_listener = TcpListener::bind(config.admin_listen).await?;
+    tracing::info!("Admin API listening on {}", config.admin_listen);
+    let admin_state = state.clone();
+    tokio::spawn(async move {
+        axum::serve(admin_listener, settled_server::admin::router(admin_state))
+            .await
+            .ok();
+    });
 
+    tracing::info!("gRPC listening on {}", config.listen);
     Server::builder()
         .add_service(SettledLogServer::new(SettledService::new(state)))
         .serve(config.listen)

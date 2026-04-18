@@ -4,6 +4,8 @@ members = [
     "crates/settled-storage",
     "crates/settled-server",
     "crates/settled-client",
+    "crates/settled-node",
+    "crates/settled-check",
     "crates/gen-sth-vectors",
 ]
 exclude = ["fuzz"]
