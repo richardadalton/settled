@@ -38,8 +38,10 @@ fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
         .unwrap()
         .as_nanos() as i64;
 
+    let sign_timer = crate::metrics::STH_SIGN_DURATION.start_timer();
     let payload = settled_core::sth::signing_payload(tree_size, &root_hash, timestamp_ns);
     let signature = state.signer.sign(&payload);
+    sign_timer.observe_duration();
 
     let sth = SignedTreeHead {
         tree_size,
@@ -51,6 +53,9 @@ fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
     };
 
     state.heads.write(&sth)?;
+    crate::metrics::STH_SIGNED.inc();
+    crate::metrics::TREE_SIZE.set(tree_size as i64);
+    crate::metrics::STH_LAST_TIMESTAMP_NS.set(timestamp_ns);
     tracing::info!(
         tree_size,
         root = hex::encode(root_hash),

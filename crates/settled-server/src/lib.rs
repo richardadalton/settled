@@ -5,6 +5,7 @@ pub mod proto {
 pub mod admin;
 pub mod config;
 pub mod error;
+pub mod metrics;
 pub mod push;
 pub mod service;
 pub mod signer;

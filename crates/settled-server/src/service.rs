@@ -41,6 +41,7 @@ impl SettledLog for SettledService {
         let req = request.into_inner();
         let lh = leaf_hash(&req.data);
 
+        let timer = crate::metrics::APPEND_DURATION.start_timer();
         let (seq, timestamp_ns) = {
             let mut mu = self.state.append_mu.lock().unwrap();
             let (seq, ts) = self
@@ -51,6 +52,8 @@ impl SettledLog for SettledService {
             mu.merkle.append(lh);
             (seq, ts)
         };
+        timer.observe_duration();
+        crate::metrics::ENTRIES_APPENDED.inc();
 
         tracing::debug!(seq, "appended entry");
 
