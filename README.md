@@ -83,7 +83,7 @@ cargo run --bin gen-sth-vectors            # Ed25519 signed tree head vectors
 
 ## Licence
 
-Copyright © 2026 Richard Dalton. All rights reserved.
+Copyright © 2026 Devjoy Ltd. All rights reserved.
 
 Source code is published under the [Elastic License 2.0](./LICENSE). In summary:
 
