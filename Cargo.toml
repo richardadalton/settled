@@ -3,6 +3,7 @@ members = [
     "crates/settled-core",
     "crates/settled-storage",
     "crates/settled-server",
+    "crates/settled-client",
     "crates/gen-sth-vectors",
 ]
 exclude = ["fuzz"]

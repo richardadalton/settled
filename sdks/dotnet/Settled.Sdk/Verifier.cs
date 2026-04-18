@@ -1,0 +1,176 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
+// Ed25519 requires .NET 9+
+
+namespace Settled.Sdk;
+
+/// <summary>
+/// Pure C# RFC 6962 Merkle tree proof verifier and Ed25519 STH verifier.
+/// See docs/wire-format.md for the canonical specification.
+/// </summary>
+public static class Verifier
+{
+    // ── Hash primitives ───────────────────────────────────────────────────────
+
+    /// <summary>SHA-256(0x00 || data)</summary>
+    public static byte[] LeafHash(ReadOnlySpan<byte> data)
+    {
+        using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        h.AppendData([0x00]);
+        h.AppendData(data);
+        return h.GetHashAndReset();
+    }
+
+    /// <summary>SHA-256(0x01 || left || right)</summary>
+    public static byte[] NodeHash(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right)
+    {
+        using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        h.AppendData([0x01]);
+        h.AppendData(left);
+        h.AppendData(right);
+        return h.GetHashAndReset();
+    }
+
+    // ── Inclusion proof ───────────────────────────────────────────────────────
+
+    /// <summary>Verify an RFC 6962 inclusion proof.</summary>
+    public static bool VerifyInclusion(
+        byte[] leaf,
+        ulong leafIndex,
+        ulong treeSize,
+        IReadOnlyList<byte[]> proof,
+        byte[] root)
+    {
+        if (treeSize == 0 || leafIndex >= treeSize) return false;
+
+        var fn = leafIndex;
+        var sn = treeSize - 1;
+        byte[] r = leaf;
+
+        foreach (var step in proof)
+        {
+            if (sn == 0) return false;
+            if ((fn & 1) != 0 || fn == sn)
+            {
+                r = NodeHash(step, r);
+                while (fn != 0 && (fn & 1) == 0) { fn >>= 1; sn >>= 1; }
+            }
+            else
+            {
+                r = NodeHash(r, step);
+            }
+            fn >>= 1;
+            sn >>= 1;
+        }
+
+        return sn == 0 && r.AsSpan().SequenceEqual(root);
+    }
+
+    // ── Consistency proof ─────────────────────────────────────────────────────
+
+    private static ulong K(ulong n)
+    {
+        ulong p = 1;
+        while (p * 2 < n) p <<= 1;
+        return p;
+    }
+
+    /// <summary>Verify an RFC 6962 consistency proof.</summary>
+    public static bool VerifyConsistency(
+        ulong oldSize,
+        ulong newSize,
+        IReadOnlyList<byte[]> proof,
+        byte[] oldRoot,
+        byte[] newRoot)
+    {
+        if (oldSize == newSize) return proof.Count == 0 && oldRoot.AsSpan().SequenceEqual(newRoot);
+        if (oldSize == 0 || oldSize > newSize) return false;
+
+        var idx = 0;
+        (byte[]? computedOld, byte[]? computedNew) = VerifySubproof(
+            oldSize, newSize, oldRoot, proof, ref idx, true);
+
+        if (computedOld is null || computedNew is null) return false;
+        return idx == proof.Count
+            && computedOld.AsSpan().SequenceEqual(oldRoot)
+            && computedNew.AsSpan().SequenceEqual(newRoot);
+    }
+
+    private static (byte[]?, byte[]?) VerifySubproof(
+        ulong m, ulong n, byte[] oldRoot,
+        IReadOnlyList<byte[]> proof, ref int idx, bool b)
+    {
+        if (m == n)
+        {
+            if (b) return (oldRoot, oldRoot);
+            if (idx >= proof.Count) return (null, null);
+            var h = proof[idx++];
+            return (h, h);
+        }
+        var split = K(n);
+        if (m <= split)
+        {
+            var (lo, ln) = VerifySubproof(m, split, oldRoot, proof, ref idx, b);
+            if (lo is null || ln is null) return (null, null);
+            if (idx >= proof.Count) return (null, null);
+            var rh = proof[idx++];
+            return (lo, NodeHash(ln, rh));
+        }
+        else
+        {
+            var (ro, rn) = VerifySubproof(m - split, n - split, oldRoot, proof, ref idx, false);
+            if (ro is null || rn is null) return (null, null);
+            if (idx >= proof.Count) return (null, null);
+            var lh = proof[idx++];
+            return (NodeHash(lh, ro), NodeHash(lh, rn));
+        }
+    }
+
+    // ── Signed Tree Head ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Build the canonical 48-byte signing payload.
+    /// Encoding: tree_size (u64 BE) || root_hash (32 bytes) || timestamp_ns (i64 BE).
+    /// See docs/wire-format.md §5.2.
+    /// </summary>
+    public static byte[] SigningPayload(ulong treeSize, byte[] rootHash, long timestampNs)
+    {
+        var buf = new byte[48];
+        BinaryPrimitives.WriteUInt64BigEndian(buf.AsSpan(0, 8), treeSize);
+        rootHash.AsSpan().CopyTo(buf.AsSpan(8, 32));
+        BinaryPrimitives.WriteInt64BigEndian(buf.AsSpan(40, 8), timestampNs);
+        return buf;
+    }
+
+    /// <summary>
+    /// Verify the Ed25519 signature on a Signed Tree Head.
+    /// publicKey must be the raw 32-byte Ed25519 public key.
+    /// Requires .NET 9+.
+    /// </summary>
+    public static bool VerifyTreeHead(
+        ulong treeSize,
+        byte[] rootHash,
+        long timestampNs,
+        byte[] signature,
+        byte[] publicKey)
+    {
+        try
+        {
+            var payload = SigningPayload(treeSize, rootHash, timestampNs);
+            // Build SPKI DER: 302a300506032b6570032100 (12 bytes) || raw public key (32 bytes).
+            ReadOnlySpan<byte> spkiHeader = [
+                0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00
+            ];
+            var spki = new byte[spkiHeader.Length + publicKey.Length];
+            spkiHeader.CopyTo(spki);
+            publicKey.CopyTo(spki.AsSpan(spkiHeader.Length));
+            using var key = Ed25519.Create();
+            key.ImportSubjectPublicKeyInfo(spki, out _);
+            return key.VerifyData(payload, signature);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

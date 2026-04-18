@@ -1,0 +1,15 @@
+[package]
+name = "settled-client"
+version = "0.1.0"
+edition = "2021"
+description = "Rust gRPC client for the Settled tamper-evident audit log"
+
+[dependencies]
+settled-core = { path = "../settled-core" }
+tonic = "0.11"
+prost = "0.12"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+thiserror = "1"
+
+[build-dependencies]
+tonic-build = "0.11"
