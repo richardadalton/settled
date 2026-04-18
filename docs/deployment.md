@@ -1,0 +1,342 @@
+# Settled — Deployment Guide
+
+## Components
+
+There are two deployable binaries and one CLI tool. The libraries (settled-core, settled-storage, settled-client) are compile-time dependencies — they are not deployed separately.
+
+| Component | Binary | Role | Required |
+|-----------|--------|------|----------|
+| Audit log server | `settled-server` | Accepts writes, stores records, signs tree heads, exposes gRPC and admin HTTP | Yes |
+| Witness node | `settled-node` | Independent counter-signing witness; verifies and archives STHs pushed by the server | Optional |
+| Verification CLI | `settled-check` | Operator tool for verifying STH signatures and inclusion proofs against a live server | Optional |
+
+A minimal production deployment is just `settled-server`. `settled-node` is only needed if you want independent counter-signatures (the threshold protocol). `settled-check` is a diagnostic tool run on demand, not a persistent service.
+
+---
+
+## Building the Binaries
+
+Requires Rust stable (1.75+) and `protoc` (Protocol Buffers compiler).
+
+```sh
+# Install protoc on macOS
+brew install protobuf
+
+# Install protoc on Debian/Ubuntu
+apt-get install -y protobuf-compiler
+
+# Build release binaries
+cargo build --release -p settled-server
+cargo build --release -p settled-node
+cargo build --release -p settled-check
+
+# Binaries are placed at:
+# target/release/settled-server
+# target/release/settled-node
+# target/release/settled-check
+```
+
+Copy the binaries to the target host — they have no runtime dependencies beyond libc.
+
+---
+
+## `settled-server`
+
+### What it runs
+
+Three concurrent tasks inside a single process:
+
+- **gRPC server** (default `:50051`) — the write and query API used by application SDKs
+- **Admin HTTP server** (default `:8080`) — settled-node registry, health check, Prometheus metrics
+- **STH task** — background loop that periodically signs the Merkle root and pushes it to registered settled nodes
+
+### Storage
+
+`settled-server` uses RocksDB for all persistent state. RocksDB is embedded — there is no external database to configure.
+
+The data directory contains:
+
+| Path | Contents |
+|------|----------|
+| `<data-dir>/` | RocksDB files (column families: log, tree, heads, index, settledes, final_heads) |
+| `<data-dir>/signing.key` | 32-byte raw Ed25519 signing key (generated on first start if absent) |
+
+**The signing key is the most critical file in the deployment.** Back it up immediately after first start. If lost, historical proofs remain verifiable (they contain the embedded public key) but new STHs cannot be signed with the same identity.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--data-dir` | `/var/lib/settled` | Directory for RocksDB data and signing key |
+| `--key-path` | `<data-dir>/signing.key` | Override path to the signing key |
+| `--listen` | `0.0.0.0:50051` | gRPC listen address |
+| `--admin-listen` | `0.0.0.0:8080` | Admin HTTP listen address |
+| `--sth-interval-secs` | `60` | How often to sign a new STH (seconds) |
+| `--max-push-failures` | `6` | Consecutive push failures before a settled node is flagged dead |
+| `--push-timeout-ms` | `5000` | Per-attempt timeout when pushing STHs to settled nodes |
+| `--threshold` | `0` | Minimum counter-signatures required for a FinalSTH (0 = threshold disabled) |
+
+### Starting the server
+
+```sh
+# Minimal — uses all defaults
+settled-server --data-dir /var/lib/settled
+
+# Production — explicit addresses, 30-second STH interval
+settled-server \
+  --data-dir /var/lib/settled \
+  --listen 0.0.0.0:50051 \
+  --admin-listen 127.0.0.1:8080 \
+  --sth-interval-secs 30
+```
+
+Log output is written to stdout in structured JSON when `RUST_LOG` is set, or human-readable by default.
+
+```sh
+RUST_LOG=info settled-server --data-dir /var/lib/settled
+```
+
+### Verifying the server is running
+
+```sh
+# Health check (returns 200 OK)
+curl http://localhost:8080/health
+
+# Prometheus metrics
+curl http://localhost:8080/metrics
+
+# Verify the STH signature using settled-check
+settled-check verify --server http://localhost:50051
+```
+
+### systemd unit (Linux)
+
+```ini
+[Unit]
+Description=Settled audit log server
+After=network.target
+
+[Service]
+Type=simple
+User=settled
+Group=settled
+ExecStart=/usr/local/bin/settled-server \
+  --data-dir /var/lib/settled \
+  --listen 0.0.0.0:50051 \
+  --admin-listen 127.0.0.1:8080 \
+  --sth-interval-secs 60
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+
+# Protect the signing key
+ReadWritePaths=/var/lib/settled
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+# Install
+useradd -r -s /sbin/nologin settled
+mkdir -p /var/lib/settled
+chown settled:settled /var/lib/settled
+cp target/release/settled-server /usr/local/bin/
+cp settled-server.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now settled-server
+```
+
+---
+
+## `settled-node`
+
+`settled-node` is an independent witness service. The main server pushes each new STH to it over HTTP. The node verifies the Ed25519 signature, archives the STH, and returns a counter-signature. It has no persistent storage — its archive is in memory and is rebuilt from pushes after a restart.
+
+### When to deploy it
+
+Deploy one or more settled nodes when you want independent cryptographic witnesses to the log's history. This is the threshold protocol: the main server can be configured to require a minimum number of counter-signatures (`--threshold N`) before a FinalSTH is considered valid. Settled nodes should run on infrastructure independent from the main server — different host, different operator if possible.
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--listen` | `0.0.0.0:8181` | HTTP listen address |
+| `--key-path` | `./settled-node.key` | Path to this node's Ed25519 signing key (generated if absent) |
+
+### Starting the node
+
+```sh
+settled-node \
+  --listen 0.0.0.0:8181 \
+  --key-path /etc/settled-node/signing.key
+```
+
+On first start, the node logs its public key:
+
+```
+INFO settled_node: Settled node identity public_key="a3f2..."
+```
+
+Record this public key — it identifies this witness in any FinalSTH counter-signatures.
+
+### Registering the node with the server
+
+After starting the node, register its URL with the server's admin API so the server knows to push STHs to it:
+
+```sh
+curl -X POST http://localhost:8080/v1/admin/settledes \
+  -H 'content-type: application/json' \
+  -d '{"url":"http://my-witness-host:8181"}'
+```
+
+The server will begin pushing new STHs to the node on the next STH interval. To see registered nodes:
+
+```sh
+curl http://localhost:8080/v1/admin/settledes
+```
+
+To remove a node:
+
+```sh
+# URL-encode the node URL
+curl -X DELETE 'http://localhost:8080/v1/admin/settledes/http%3A%2F%2Fmy-witness-host%3A8181'
+```
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /push` | Receive an STH push from the main server; returns a counter-signature |
+| `GET /archive/:tree_size` | Retrieve a previously witnessed STH by tree size |
+
+### systemd unit (Linux)
+
+```ini
+[Unit]
+Description=Settled witness node
+After=network.target
+
+[Service]
+Type=simple
+User=settled-node
+Group=settled-node
+ExecStart=/usr/local/bin/settled-node \
+  --listen 0.0.0.0:8181 \
+  --key-path /etc/settled-node/signing.key
+Restart=on-failure
+RestartSec=5s
+
+ReadOnlyPaths=/etc/settled-node
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+## `settled-check`
+
+`settled-check` is a command-line verification tool. It is not a service — run it on demand to verify the server is healthy and proofs are valid.
+
+```sh
+# Verify the latest STH signature
+settled-check verify --server http://localhost:50051
+
+# Also verify an inclusion proof for entry seq=42
+settled-check verify --server http://localhost:50051 --seq 42
+```
+
+Exit code 0 means all verifications passed. Exit code 1 means verification failed or the server was unreachable.
+
+---
+
+## Networking
+
+| Port | Component | Protocol | Exposure |
+|------|-----------|----------|----------|
+| 50051 | settled-server | gRPC (HTTP/2) | Application network (SDK clients connect here) |
+| 8080 | settled-server admin | HTTP | Internal only — do not expose publicly |
+| 8181 | settled-node | HTTP | Reachable from the main server |
+
+The admin port (`8080`) exposes the settled-node registry (add/remove witnesses) and Prometheus metrics. It should be firewalled to the local host or internal network. It does not require authentication.
+
+The gRPC port (`50051`) is the endpoint application SDKs connect to. Expose it to your application network. Use a TLS-terminating proxy (nginx, Envoy) in front of it if clients are on untrusted networks.
+
+---
+
+## Monitoring
+
+`settled-server` exposes Prometheus metrics at `GET http://localhost:8080/metrics`.
+
+Key metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `settled_entries_appended_total` | Counter | Total entries written to the log |
+| `settled_append_duration_seconds` | Histogram | Write path latency (p50 target < 100µs, p99 < 1ms) |
+| `settled_sth_signed_total` | Counter | Total Signed Tree Heads produced |
+| `settled_sth_sign_duration_seconds` | Histogram | Ed25519 signing duration |
+| `settled_tree_size` | Gauge | Entries covered by the latest STH |
+| `settled_sth_last_timestamp_ns` | Gauge | Unix timestamp (ns) of the latest STH |
+
+To compute STH lag (time since last signed tree head) in Grafana:
+
+```
+time() * 1e9 - settled_sth_last_timestamp_ns
+```
+
+---
+
+## Backup and Recovery
+
+### What to back up
+
+| File | Priority | Notes |
+|------|----------|-------|
+| `<data-dir>/signing.key` | Critical | Loss means new STHs cannot be signed with the original key identity |
+| `<data-dir>/` (RocksDB) | Important | Loss of the RocksDB directory means loss of all log data |
+| settled-node `signing.key` | Important | Loss means this node's counter-signatures cannot be produced |
+
+### Recovery after data directory loss
+
+If the RocksDB directory is lost but the signing key is intact and log backups exist, the server can be restarted with a restored data directory. The Merkle tree is fully reconstructible from the log column family — the server rebuilds it on startup automatically.
+
+If the signing key is lost, a new key can be generated. Historical STHs remain verifiable (they embed the public key that signed them). New STHs will carry a different public key identity. Inform any relying parties of the key change.
+
+---
+
+## SDK Deployment
+
+The SDKs are client libraries — they are not deployed as services. They are included as dependencies in application code.
+
+| SDK | Install |
+|-----|---------|
+| TypeScript | `npm install @settled/sdk` (or copy from `sdks/typescript/`) |
+| Python | `pip install settled-sdk` (or copy from `sdks/python/`) |
+| Go | `go get github.com/richardadalton/settled/sdks/go` |
+| Java | Add Maven/Gradle dependency from `sdks/java/` |
+| .NET | Add NuGet package from `sdks/dotnet/` |
+| Rust | Add `settled-client` path dependency from `crates/settled-client/` |
+
+Each SDK connects to `settled-server` on the gRPC port (default `50051`). The server address is the only configuration an SDK client needs.
+
+```typescript
+// TypeScript example
+import { SettledClient } from '@settled/sdk';
+const client = new SettledClient('localhost:50051');
+```
+
+```python
+# Python example
+from settled import SettledClient
+client = SettledClient('localhost:50051')
+```
