@@ -1,0 +1,35 @@
+[
+  {
+    "description": "tree_size=1",
+    "note": "private_key_seed_hex is a PUBLIC TEST KEY. Never use in production.",
+    "private_key_seed_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    "root_hash_hex": "40766b2033429026f53d54502679a839706b4741f8dcaf3a8bba5f41b5ffe075",
+    "signature_hex": "f4309b52a9cf65a2eab2d3198178eae500ea8860eee9520fbb6cf926b396d6a57a91a7d3bb5b2d2511a53995c771312105ceb56f4340834008a150711229a802",
+    "signing_payload_hex": "000000000000000140766b2033429026f53d54502679a839706b4741f8dcaf3a8bba5f41b5ffe075000000003b9aca00",
+    "timestamp_ns": 1000000000,
+    "tree_size": 1
+  },
+  {
+    "description": "tree_size=4",
+    "note": "private_key_seed_hex is a PUBLIC TEST KEY. Never use in production.",
+    "private_key_seed_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    "root_hash_hex": "256b9e8825e5d370a4ae005d0901ea291977e2927f5cf8e3e72660dd09519edb",
+    "signature_hex": "b06ed4da2acc5480ebb5ba347e5b4294aee7ceb96b86e7a5f78bc392c0dc40b4936c95b575398001597bff38f09bc44b4de4c5c0ee4620a4bfed06ab48792f00",
+    "signing_payload_hex": "0000000000000004256b9e8825e5d370a4ae005d0901ea291977e2927f5cf8e3e72660dd09519edb0000000077359400",
+    "timestamp_ns": 2000000000,
+    "tree_size": 4
+  },
+  {
+    "description": "tree_size=8",
+    "note": "private_key_seed_hex is a PUBLIC TEST KEY. Never use in production.",
+    "private_key_seed_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    "root_hash_hex": "dfcc13b9b0ca932c68de3d59eaaa8fe266a9c8091c0300e8405ebfeb0d0e5832",
+    "signature_hex": "248508a055c834fb6f55130bab3d7da31f25ecbacfc942b07b6621dfbb3042d739e7617cb8d74cc26e041bcc7908d1bf4aa992160ee0a5e1646bd3180b31a10f",
+    "signing_payload_hex": "0000000000000008dfcc13b9b0ca932c68de3d59eaaa8fe266a9c8091c0300e8405ebfeb0d0e583217c716066782c000",
+    "timestamp_ns": 1713362400000000000,
+    "tree_size": 8
+  }
+]

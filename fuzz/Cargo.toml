@@ -1,0 +1,34 @@
+[package]
+name = "settled-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+settled-core = { path = "../crates/settled-core" }
+ed25519-dalek = "2"
+
+[[bin]]
+name = "fuzz_verify_inclusion"
+path = "fuzz_targets/fuzz_verify_inclusion.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_verify_consistency"
+path = "fuzz_targets/fuzz_verify_consistency.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_verify_tree_head"
+path = "fuzz_targets/fuzz_verify_tree_head.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,67 @@
+[
+  {
+    "description": "empty input",
+    "input_hex": "",
+    "hash_hex": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+  },
+  {
+    "description": "single null byte",
+    "input_hex": "00",
+    "hash_hex": "96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7"
+  },
+  {
+    "description": "single 0xFF byte",
+    "input_hex": "ff",
+    "hash_hex": "06eb7d6a69ee19e5fbdf749018d3d2abfa04bcbd1365db312eb86dc7169389b8"
+  },
+  {
+    "description": "ASCII string",
+    "input_hex": "68656c6c6f",
+    "hash_hex": "8a2a5c9b768827de5a9552c38a044c66959c68f6d2f21b5260af54d2f87db827"
+  },
+  {
+    "description": "32 null bytes",
+    "input_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "hash_hex": "7f9c9e31ac8256ca2f258583df262dbc7d6f68f2a03043d5c99a4ae5a7396ce9"
+  },
+  {
+    "description": "standard entry 0",
+    "input_hex": "656e7472792d30",
+    "hash_hex": "40766b2033429026f53d54502679a839706b4741f8dcaf3a8bba5f41b5ffe075"
+  },
+  {
+    "description": "standard entry 1",
+    "input_hex": "656e7472792d31",
+    "hash_hex": "e868811a482c27d50b6d45dde79c465d6adb9b06645100477a90cf3d8518898b"
+  },
+  {
+    "description": "standard entry 2",
+    "input_hex": "656e7472792d32",
+    "hash_hex": "049d7dcdb56bcfebd313304c9839f196a3d4b6ef3bdc0b08298f93ac8191f0a8"
+  },
+  {
+    "description": "standard entry 3",
+    "input_hex": "656e7472792d33",
+    "hash_hex": "27479b6ab321d2ee477452f68ba527748e863cafe8fbd1df2bf89d1570d1b697"
+  },
+  {
+    "description": "standard entry 4",
+    "input_hex": "656e7472792d34",
+    "hash_hex": "194bb5a2d5bd10e5d1aa6fd5d42980b356caf1da623cd9987c4bfa2f81771ed7"
+  },
+  {
+    "description": "standard entry 5",
+    "input_hex": "656e7472792d35",
+    "hash_hex": "514158527515064c7bbd35b44c9f11addcfc38b439554fc9bb0d8b7c661c3e8f"
+  },
+  {
+    "description": "standard entry 6",
+    "input_hex": "656e7472792d36",
+    "hash_hex": "0cfda576ff4b29ea33c3afdaeed1bd637eb654b28a04302fcab5fd7db07801cc"
+  },
+  {
+    "description": "standard entry 7",
+    "input_hex": "656e7472792d37",
+    "hash_hex": "c8d81ba4fdd46c6c3c73c87b209eeaf944cf511327211f1f9a81586cf7d4d5a4"
+  }
+]

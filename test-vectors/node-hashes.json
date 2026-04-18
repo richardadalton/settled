@@ -1,0 +1,34 @@
+[
+  {
+    "description": "node_hash(leaf[0], leaf[1])",
+    "left_hex": "40766b2033429026f53d54502679a839706b4741f8dcaf3a8bba5f41b5ffe075",
+    "right_hex": "e868811a482c27d50b6d45dde79c465d6adb9b06645100477a90cf3d8518898b",
+    "hash_hex": "2f27a5082c1d42afa488ac350a9fc4390c084f54f71ecdff859e98db8429b479"
+  },
+  {
+    "description": "node_hash(leaf[1], leaf[2])",
+    "left_hex": "e868811a482c27d50b6d45dde79c465d6adb9b06645100477a90cf3d8518898b",
+    "right_hex": "049d7dcdb56bcfebd313304c9839f196a3d4b6ef3bdc0b08298f93ac8191f0a8",
+    "hash_hex": "f0ba1dc15b0cb02f6a46c55ef5b879cddcb37bf5a3f053dc9fec19dbe8b3209f"
+  },
+  {
+    "description": "node_hash(leaf[2], leaf[3])",
+    "left_hex": "049d7dcdb56bcfebd313304c9839f196a3d4b6ef3bdc0b08298f93ac8191f0a8",
+    "right_hex": "27479b6ab321d2ee477452f68ba527748e863cafe8fbd1df2bf89d1570d1b697",
+    "hash_hex": "b17003e0b3bbc81fe116edb140c39727254849cc4652b0f7c4f26f8b9d9f987d"
+  },
+  {
+    "description": "node_hash(leaf[3], leaf[4])",
+    "left_hex": "27479b6ab321d2ee477452f68ba527748e863cafe8fbd1df2bf89d1570d1b697",
+    "right_hex": "194bb5a2d5bd10e5d1aa6fd5d42980b356caf1da623cd9987c4bfa2f81771ed7",
+    "hash_hex": "1c9f04bd07d75f869e0f9ac128ebaa133a9426622cbe4b73a749d6bd83d41d03"
+  },
+  {
+    "description": "non-commutativity: node_hash(a,b) != node_hash(b,a)",
+    "left_hex": "40766b2033429026f53d54502679a839706b4741f8dcaf3a8bba5f41b5ffe075",
+    "right_hex": "e868811a482c27d50b6d45dde79c465d6adb9b06645100477a90cf3d8518898b",
+    "hash_hex": "2f27a5082c1d42afa488ac350a9fc4390c084f54f71ecdff859e98db8429b479",
+    "swapped_hash_hex": "6bdca1e3c4af20bd50c5e5e0f5f4cdc4d774f31067064fa82a9b56f98cb1c77f",
+    "note": "hash_hex and swapped_hash_hex MUST differ"
+  }
+]

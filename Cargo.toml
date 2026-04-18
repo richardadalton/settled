@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/settled-core",
+    "crates/settled-storage",
+    "crates/gen-sth-vectors",
+]
+exclude = ["fuzz"]
+resolver = "2"
