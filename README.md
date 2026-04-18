@@ -20,7 +20,7 @@ Regulated applications need tamper-evident audit trails. The current options are
 | Managed SaaS (Splunk, CloudTrail) | Vendor lock-in, cloud-only, expensive at scale |
 | Immudb / Trillian | Correct guarantees, but limited SDK ecosystem |
 
-Settled fills the gap: self-hostable, open source, genuine cryptographic tamper-evidence, with first-class SDKs for TypeScript, Python, Go, Java, Rust, and .NET.
+Settled fills the gap: self-hostable, genuine cryptographic tamper-evidence, with first-class SDKs for TypeScript, Python, Go, Java, Rust, and .NET.
 
 ## How it works
 
@@ -80,3 +80,16 @@ cargo run --bin gen-sth-vectors            # Ed25519 signed tree head vectors
 - [`docs/wire-format.md`](docs/wire-format.md) — hash constructions, proof algorithms, STH signing payload, duplicate key semantics
 - [`docs/storage-schema.md`](docs/storage-schema.md) — RocksDB column family layout, key encodings, protobuf schemas
 - [`docs/implementation-plan.md`](docs/implementation-plan.md) — full build plan with completion gates for each phase
+
+## Licence
+
+Copyright © 2026 Richard Dalton. All rights reserved.
+
+Source code is published under the [Elastic License 2.0](./LICENSE). In summary:
+
+- You may view, inspect, and run the software.
+- You may not offer the software to third parties as a hosted or managed service.
+- You may not remove or obscure licence or copyright notices.
+- No warranty is provided.
+
+This is not an open source project. The source is published for transparency and auditability — pull requests are not accepted. If you'd like to discuss integration or licensing, [get in touch](https://www.devjoy.com/settled/#contact).
