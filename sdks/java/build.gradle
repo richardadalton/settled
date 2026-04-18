@@ -30,6 +30,14 @@ dependencies {
     testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
 }
 
+sourceSets {
+    main {
+        proto {
+            srcDirs = ['../../proto']
+        }
+    }
+}
+
 protobuf {
     protoc {
         artifact = "com.google.protobuf:protoc:${protobufVersion}"

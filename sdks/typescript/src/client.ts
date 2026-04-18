@@ -13,7 +13,7 @@ import type {
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = path.resolve(__dirname, '../proto/settled.v1.proto');
+const PROTO_PATH = path.resolve(__dirname, '../../../proto/settled.v1.proto');
 
 function loadServiceStub(): grpc.ServiceClientConstructor {
   const packageDef = protoLoader.loadSync(PROTO_PATH, {
