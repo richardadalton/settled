@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settled — Audit Log Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .subtitle { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3348;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    label { display: block; font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.375rem; }
+    input, textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2d3348;
+      border-radius: 0.5rem;
+      color: #e2e8f0;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, textarea:focus { border-color: #6366f1; }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .row { display: flex; gap: 1rem; }
+    .row > * { flex: 1; }
+
+    button {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary {
+      background: #2d3348;
+      color: #94a3b8;
+    }
+    button.secondary:hover { background: #3a4060; color: #e2e8f0; }
+
+    .actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+
+    #status {
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.5rem;
+      display: none;
+    }
+    #status.ok  { background: #14532d; color: #86efac; display: block; }
+    #status.err { background: #450a0a; color: #fca5a5; display: block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    thead tr { border-bottom: 1px solid #2d3348; }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: #64748b; font-weight: 600; white-space: nowrap; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1a1f2e; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #252a3e; }
+
+    .seq  { color: #818cf8; font-weight: 700; width: 3rem; }
+    .hash { font-family: monospace; color: #475569; font-size: 0.75rem; }
+    .ts   { color: #475569; white-space: nowrap; }
+    .data-cell { max-width: 28rem; word-break: break-word; }
+
+    .empty { color: #475569; text-align: center; padding: 2rem; font-size: 0.875rem; }
+
+    .tree-info {
+      display: flex; gap: 1.5rem; flex-wrap: wrap;
+      font-size: 0.8125rem; color: #64748b;
+      margin-bottom: 1rem;
+    }
+    .tree-info span { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>Settled Audit Log</h1>
+  <p class="subtitle">Tamper-evident append-only log demo</p>
+
+  <div class="card">
+    <h2>Append Entry</h2>
+    <div class="row">
+      <div>
+        <label for="key">Key</label>
+        <input id="key" type="text" placeholder="e.g. user-123" />
+      </div>
+    </div>
+    <label for="data">Data</label>
+    <textarea id="data" placeholder="Audit event payload…"></textarea>
+    <div class="actions">
+      <button id="appendBtn">Append</button>
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Audit Log</h2>
+    <div class="tree-info" id="treeInfo"></div>
+    <div class="actions" style="margin-bottom:1rem">
+      <button class="secondary" id="reloadBtn">Reload Audit</button>
+    </div>
+    <div id="tableWrap">
+      <p class="empty">Click "Reload Audit" to load entries.</p>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

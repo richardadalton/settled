@@ -28,20 +28,81 @@ Each entry is hashed (`SHA-256(0x00 || data)`) and inserted as a leaf in an appe
 
 Write throughput is decoupled from proof generation: clients receive a durable acknowledgment immediately, and proofs are produced asynchronously. This mirrors how CT logs handle billions of entries.
 
-## Project status
+## Getting started
 
-Under active development. Phases completed:
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) — to run the server
+- [Node.js](https://nodejs.org/) 18+ and npm — to run the web demo
+
+### 1. Pull and run the server
+
+```sh
+docker pull richardadalton/settled-server:latest
+
+docker run -d \
+  --name settled \
+  -p 50051:50051 \
+  -p 8080:8080 \
+  -v settled-data:/data \
+  richardadalton/settled-server:latest
+```
+
+On first start, the server generates an Ed25519 signing key at `/data/signing.key` inside the volume. **Back this up** — it is the root of trust for all proofs. If it is lost, existing proofs can no longer be verified against it.
+
+```sh
+# Back up the signing key
+docker cp settled:/data/signing.key ./signing.key.backup
+```
+
+Verify the server is healthy:
+
+```sh
+curl http://localhost:8080/health
+```
+
+#### STH interval
+
+Writes and signing are decoupled. Every append is acknowledged and durably stored immediately — the Ed25519 signing step happens in the background on a separate timer, so write throughput is never blocked by cryptographic operations.
+
+By default the server signs a new Signed Tree Head (STH) every **60 seconds**. Entries appended since the last signing are safely stored but not yet visible to readers until the next cycle. The 60-second default is a deliberate trade-off: it keeps signing overhead negligible even under high write load. For development or low-latency read requirements you can reduce it:
+
+```sh
+docker run -d \
+  --name settled \
+  -p 50051:50051 \
+  -p 8080:8080 \
+  -v settled-data:/data \
+  richardadalton/settled-server:latest \
+  --data-dir /data --sth-interval-secs 5
+```
+
+Set `--sth-interval-secs` to any positive integer. Lower values mean fresher reads; higher values mean fewer signatures and lower CPU overhead at scale.
+
+### 2. Run the web demo
+
+The `examples/web-demo` directory contains a small TypeScript app that appends entries to the log and displays the audit trail.
+
+```sh
+cd examples/web-demo
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). Enter a key and some data, click **Append**, then click **Reload Audit** to see the full log.
+
+## Project status
 
 | Phase | What | Status |
 |-------|------|--------|
 | 1 | Spec and wire format | Done |
 | 2 | `settled-core` — cryptographic library | Done |
 | 3 | `settled-storage` — RocksDB storage layer | Done |
-| 4 | `settled-server` — gRPC/HTTP server | Upcoming |
-| 5 | TypeScript SDK | Upcoming |
-| 6 | Additional SDKs | Upcoming |
-| 7 | External verifier protocol | Upcoming |
-| 8 | Performance validation | Upcoming |
+| 4 | `settled-server` — gRPC/HTTP server | Done |
+| 5 | TypeScript SDK | Done |
+| 6 | Additional SDKs (Python, Go, Java, Rust, .NET) | Done |
+| 7 | External verifier protocol | Done |
+| 8 | Performance validation | Done |
 
 ## Crate structure
 
