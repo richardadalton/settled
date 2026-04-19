@@ -1,0 +1,45 @@
+# ── Stage 1: cargo-chef planner ───────────────────────────────────────────────
+# Computes a minimal "recipe" describing only the dependency graph.
+# This layer is invalidated only when Cargo.toml / Cargo.lock change.
+FROM rust:1-bookworm AS chef
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends protobuf-compiler \
+ && rm -rf /var/lib/apt/lists/*
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ── Stage 2: dependency builder ───────────────────────────────────────────────
+# Compiles dependencies (including RocksDB) using the recipe.
+# Cached as long as dependencies don't change — RocksDB won't recompile
+# on every source edit.
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Copy source and build the server binary.
+COPY . .
+RUN cargo build --release --locked -p settled-server
+
+# ── Stage 3: minimal runtime image ────────────────────────────────────────────
+# distroless/cc contains only glibc and libstdc++ — required by RocksDB.
+# No shell, no package manager, minimal attack surface.
+FROM gcr.io/distroless/cc-debian12
+
+COPY --from=builder /app/target/release/settled-server /usr/local/bin/settled-server
+
+# gRPC endpoint for SDK clients
+EXPOSE 50051
+# Admin HTTP endpoint (health, metrics, settled-node registry)
+EXPOSE 8080
+
+# Persist the RocksDB data directory and signing key across container restarts.
+VOLUME ["/data"]
+
+# Default: store everything under /data.
+# Override any flag at runtime: docker run ... --sth-interval-secs 30
+ENTRYPOINT ["/usr/local/bin/settled-server"]
+CMD ["--data-dir", "/data"]

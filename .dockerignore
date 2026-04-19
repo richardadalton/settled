@@ -1,0 +1,13 @@
+target/
+fuzz/
+sdks/
+docs/
+scripts/
+test-vectors/
+.git/
+.idea/
+.claude/
+memory/
+**/__pycache__/
+**/node_modules/
+**/dist/
