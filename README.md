@@ -91,6 +91,8 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). Enter a key and some data, click **Append**, then click **Reload Audit** to see the full log.
 
+The **Key** is a correlation identifier, not a unique constraint. Use it to group related records — a user ID, order ID, or product ID that will have many entries over time. The server indexes by key so you can efficiently retrieve the most recent entry for any given entity.
+
 ## Project status
 
 | Phase | What | Status |
