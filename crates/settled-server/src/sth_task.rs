@@ -62,7 +62,5 @@ fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
         "Signed new STH"
     );
 
-    crate::push::trigger(state.clone(), sth);
-
     Ok(())
 }

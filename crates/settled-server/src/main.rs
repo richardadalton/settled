@@ -26,16 +26,6 @@ struct Args {
 
     #[arg(long, default_value_t = 60)]
     sth_interval_secs: u64,
-
-    #[arg(long, default_value_t = 6)]
-    max_push_failures: u32,
-
-    #[arg(long, default_value_t = 5000)]
-    push_timeout_ms: u64,
-
-    /// Minimum counter-signatures for a FinalSTH (0 = disabled)
-    #[arg(long, default_value_t = 0)]
-    threshold: usize,
 }
 
 #[tokio::main]
@@ -53,9 +43,6 @@ async fn main() -> anyhow::Result<()> {
         listen: args.listen,
         admin_listen: args.admin_listen,
         sth_interval_secs: args.sth_interval_secs,
-        max_push_failures: args.max_push_failures,
-        push_timeout_ms: args.push_timeout_ms,
-        threshold: args.threshold,
     };
 
     let state = AppState::build(config.clone()).await?;

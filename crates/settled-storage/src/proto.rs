@@ -2,24 +2,6 @@
 /// Use the types in `types.rs` instead.
 
 #[derive(Clone, PartialEq, prost::Message)]
-pub(crate) struct CounterSignatureProto {
-    #[prost(string, tag = "1")]
-    pub settled_node_url: String,
-    #[prost(bytes = "vec", tag = "2")]
-    pub public_key: Vec<u8>,
-    #[prost(bytes = "vec", tag = "3")]
-    pub signature: Vec<u8>,
-}
-
-#[derive(Clone, PartialEq, prost::Message)]
-pub(crate) struct FinalSTHProto {
-    #[prost(message, tag = "1")]
-    pub sth: Option<SignedTreeHeadProto>,
-    #[prost(message, repeated, tag = "2")]
-    pub counter_signatures: Vec<CounterSignatureProto>,
-}
-
-#[derive(Clone, PartialEq, prost::Message)]
 pub(crate) struct LogEntryProto {
     #[prost(uint64, tag = "1")]
     pub seq: u64,

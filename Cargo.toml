@@ -4,7 +4,6 @@ members = [
     "crates/settled-storage",
     "crates/settled-server",
     "crates/settled-client",
-    "crates/settled-node",
     "crates/settled-check",
     "tools/gen-sth-vectors",
 ]

@@ -18,36 +18,10 @@ services:
       - --listen=0.0.0.0:50051
       - --admin-listen=0.0.0.0:8080
       - --sth-interval-secs=60
-      # Require 1 counter-signature from the witness node below.
-      # Set to 0 to disable threshold enforcement.
-      - --threshold=1
     restart: unless-stopped
     # Health endpoint is GET http://localhost:8080/health — check from your
     # load balancer, Prometheus, or an external probe. The distroless runtime
     # image has no shell, so in-container health checks are not available.
 
-  # ── Witness node ─────────────────────────────────────────────────────────────
-  # Independent counter-signing witness. The server pushes each new STH here
-  # and receives a counter-signature in return.
-  #
-  # After first start, register this node with the server:
-  #   docker compose exec settled-server \
-  #     wget -qO- --post-data='{"url":"http://settled-node:8181"}' \
-  #     --header='Content-Type: application/json' \
-  #     http://localhost:8080/v1/admin/settledes
-  settled-node:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.node
-    image: settled-node:latest
-    ports:
-      - "127.0.0.1:8181:8181"  # Local only — server pushes to it on the internal network
-    volumes:
-      - node-data:/data
-    environment:
-      RUST_LOG: info
-    restart: unless-stopped
-
 volumes:
   server-data:
-  node-data:
