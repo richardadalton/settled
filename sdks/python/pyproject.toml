@@ -6,7 +6,21 @@ build-backend = "hatchling.build"
 name = "settled-sdk"
 version = "0.1.0"
 description = "Python SDK for the Settled tamper-evident audit log"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Richard Dalton", email = "richard.a.dalton@gmail.com" },
+]
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "cryptography>=42.0.0",
     "grpcio>=1.62.0",
@@ -16,6 +30,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/richardadalton/settled"
+Repository = "https://github.com/richardadalton/settled"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/settled"]
