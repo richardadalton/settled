@@ -81,10 +81,10 @@ Set `--sth-interval-secs` to any positive integer. Lower values mean fresher rea
 
 ### 2. Run the web demo
 
-The `examples/typescript_demo` directory contains a small TypeScript app that appends entries to the log and displays the audit trail.
+The `demos/typescript` directory contains a small TypeScript app that appends entries to the log and displays the audit trail.
 
 ```sh
-cd examples/typescript_demo
+cd demos/typescript
 npm install
 npm run dev
 ```

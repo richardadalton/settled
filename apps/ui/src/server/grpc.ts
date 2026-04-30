@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // In production the Dockerfile copies proto/ to /proto.
-// In development it sits three levels up from src/server/.
+// In development it sits four levels up from src/server/ (apps/ui/src/server/).
 const PROTO_PATH = process.env['NODE_ENV'] === 'production'
   ? '/proto/settled.v1.proto'
-  : path.resolve(__dirname, '../../../proto/settled.v1.proto');
+  : path.resolve(__dirname, '../../../../proto/settled.v1.proto');
 
 const GRPC_ADDR = process.env['SETTLED_ADDR'] ?? 'localhost:50051';
 
@@ -16,7 +16,7 @@ const packageDef = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
   defaults: true,
-  includeDirs: [path.resolve(__dirname, '../../../proto')],
+  includeDirs: [path.resolve(__dirname, '../../../../proto')],
 });
 
 const pkg = grpc.loadPackageDefinition(packageDef) as Record<string, unknown>;

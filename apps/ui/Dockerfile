@@ -1,14 +1,14 @@
 # Build context must be the repo root (set in compose.yml).
-# This lets us reach both settled-ui/ and proto/.
+# This lets us reach both apps/ui/ and proto/.
 
 # ── Stage 1: build ────────────────────────────────────────────────────────────
 FROM node:20-slim AS builder
 WORKDIR /app
 
-COPY settled-ui/package*.json ./
+COPY apps/ui/package*.json ./
 RUN npm ci
 
-COPY settled-ui/ .
+COPY apps/ui/ .
 # Proto file lives outside the UI directory; copy it so the gRPC client can
 # load it at the same relative path used in development.
 COPY proto/ /proto
@@ -21,7 +21,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY settled-ui/package*.json ./
+COPY apps/ui/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist       ./dist

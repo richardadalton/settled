@@ -25,7 +25,7 @@ services:
   settled-ui:
     build:
       context: ..
-      dockerfile: settled-ui/Dockerfile
+      dockerfile: apps/ui/Dockerfile
     image: settled-ui:latest
     ports:
       - "3000:3000"
