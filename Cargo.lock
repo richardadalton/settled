@@ -2034,6 +2034,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tonic 0.12.3",
  "tonic-build 0.12.3",
  "tower 0.4.13",
