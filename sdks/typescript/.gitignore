@@ -1,2 +1,4 @@
 node_modules/
 dist/
+# Synced from the canonical repo proto via `npm run sync-proto`.
+proto/

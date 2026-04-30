@@ -1,9 +1,10 @@
 // Package client provides a gRPC client for the Settled audit log server.
-// Proto stubs must be generated before use:
+// Proto stubs must be generated before use; from sdks/go run:
 //
-//	protoc --go_out=. --go-grpc_out=. \
-//	  -I../../crates/settled-server/proto \
-//	  settled.v1.proto
+//	./scripts/generate.sh
+//
+// (which invokes protoc against the canonical proto/settled.v1.proto at the
+// repo root).
 package client
 
 import (

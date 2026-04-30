@@ -16,6 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="../proto/settled.v1.proto" GrpcServices="Client" />
+    <Protobuf Include="../../../proto/settled.v1.proto" GrpcServices="Client" />
   </ItemGroup>
 </Project>

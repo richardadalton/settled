@@ -6,7 +6,7 @@
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROTO="$SCRIPT_DIR/../../../crates/settled-server/proto/settled.v1.proto"
+PROTO="$SCRIPT_DIR/../../../proto/settled.v1.proto"
 OUT="$SCRIPT_DIR/../client/proto"
 
 mkdir -p "$OUT"
