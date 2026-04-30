@@ -130,6 +130,35 @@ export class SettledClient {
     });
   }
 
+  /**
+   * Fetch the most-recent ``n`` entries (newest first).
+   *
+   * ``n = 0`` is treated as 1 by the server. Values above the server cap
+   * (currently 1000) are silently clamped. Returns an empty array if the
+   * log has no entries yet.
+   */
+  getLatest(n = 1): Promise<Entry[]> {
+    return new Promise((resolve, reject) => {
+      (this.stub as unknown as Record<string, Function>)['getLatest'](
+        { n },
+        (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
+          if (err) return reject(err);
+          const entries = ((res['entries'] as unknown[]) ?? []).map((raw) => {
+            const e = raw as Record<string, unknown>;
+            return {
+              seq: toBigInt(e['seq']),
+              timestampNs: toBigInt(e['timestamp_ns']),
+              key: toBytes(e['key']),
+              data: toBytes(e['data']),
+              leafHash: toBytes(e['leaf_hash']),
+            } satisfies Entry;
+          });
+          resolve(entries);
+        },
+      );
+    });
+  }
+
   getSth(treeSize: bigint = 0n): Promise<SignedTreeHead> {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['getSth'](
