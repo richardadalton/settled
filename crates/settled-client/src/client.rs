@@ -8,7 +8,7 @@ pub mod proto {
 use proto::settled_log_client::SettledLogClient;
 pub use proto::{
     AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse,
-    GetRequest, GetResponse, GetSthRequest, GetSthResponse,
+    GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest, GetSthResponse,
     InclusionProofRequest, InclusionProofResponse, SignedTreeHead,
 };
 
@@ -42,6 +42,13 @@ impl SettledClient {
 
     pub async fn get(&mut self, seq: u64) -> Result<GetResponse, ClientError> {
         let res = self.inner.get(Request::new(GetRequest { seq })).await?;
+        Ok(res.into_inner())
+    }
+
+    /// Fetch the most-recent `n` entries (newest first). Pass `n = 0` for the
+    /// single most-recent entry; values above the server cap are clamped.
+    pub async fn get_latest(&mut self, n: u32) -> Result<GetLatestResponse, ClientError> {
+        let res = self.inner.get_latest(Request::new(GetLatestRequest { n })).await?;
         Ok(res.into_inner())
     }
 

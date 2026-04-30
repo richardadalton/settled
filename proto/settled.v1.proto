@@ -40,6 +40,23 @@ message GetResponse {
   Entry entry = 1;
 }
 
+// ── Get Latest ───────────────────────────────────────────────────────────────
+
+message GetLatestRequest {
+  // Number of most-recent entries to return. 0 is treated as 1.
+  // Server caps this at an implementation-defined maximum (currently 1000);
+  // requests above the cap are silently clamped.
+  uint32 n = 1;
+}
+
+message GetLatestResponse {
+  // Most-recent entries in newest-first order: entries[0] is the newest
+  // durably-stored entry. Empty if the log has no entries yet.
+  // Note: entries here reflect what is durable in storage; they may not yet
+  // be sealed in the latest STH.
+  repeated Entry entries = 1;
+}
+
 // ── Signed Tree Head ─────────────────────────────────────────────────────────
 
 message SignedTreeHead {
@@ -102,6 +119,10 @@ service SettledLog {
 
   // Retrieve a single entry by sequence number.
   rpc Get(GetRequest) returns (GetResponse);
+
+  // Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
+  // Returns durably-stored entries; they may not yet be sealed in the latest STH.
+  rpc GetLatest(GetLatestRequest) returns (GetLatestResponse);
 
   // Retrieve a Signed Tree Head. tree_size == 0 returns the latest.
   rpc GetSth(GetSthRequest) returns (GetSthResponse);

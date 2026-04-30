@@ -6,10 +6,14 @@ use crate::error::Error;
 use crate::proto::settled_log_server::SettledLog;
 use crate::proto::{
     AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse,
-    Entry, GetRequest, GetResponse, GetSthRequest, GetSthResponse, InclusionProofRequest,
-    InclusionProofResponse, SignedTreeHead as ProtoSth,
+    Entry, GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest,
+    GetSthResponse, InclusionProofRequest, InclusionProofResponse, SignedTreeHead as ProtoSth,
 };
 use crate::state::AppState;
+
+/// Maximum number of entries returnable by a single GetLatest call.
+/// Larger values are silently clamped to this cap.
+const MAX_LATEST: u32 = 1000;
 
 pub struct SettledService {
     state: AppState,
@@ -83,6 +87,33 @@ impl SettledLog for SettledService {
                 leaf_hash: entry.leaf_hash.to_vec(),
             }),
         }))
+    }
+
+    async fn get_latest(
+        &self,
+        request: Request<GetLatestRequest>,
+    ) -> Result<Response<GetLatestResponse>, Status> {
+        let req = request.into_inner();
+        let n = if req.n == 0 { 1 } else { req.n.min(MAX_LATEST) } as usize;
+
+        let log = self.state.log.clone();
+        let entries = tokio::task::spawn_blocking(move || log.latest(n))
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?
+            .map_err(|e| Status::from(Error::Storage(e)))?;
+
+        let entries = entries
+            .into_iter()
+            .map(|e| Entry {
+                seq: e.seq,
+                timestamp_ns: e.timestamp_ns,
+                key: e.key,
+                data: e.data,
+                leaf_hash: e.leaf_hash.to_vec(),
+            })
+            .collect();
+
+        Ok(Response::new(GetLatestResponse { entries }))
     }
 
     async fn get_sth(

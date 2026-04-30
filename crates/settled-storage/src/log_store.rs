@@ -96,6 +96,30 @@ impl LogStore {
         }
         Ok(entries)
     }
+
+    /// Returns the most-recent `n` entries in newest-first order.
+    /// `entries[0]` is the newest durably-stored entry.
+    ///
+    /// Reads strictly from durable storage (RocksDB reverse iteration), so it
+    /// is not affected by the race where `next_seq` has been incremented by a
+    /// concurrent `append` that has not yet committed its WriteBatch.
+    pub fn latest(&self, n: usize) -> Result<Vec<LogEntry>> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
+        let iter = self.0.db.iterator_cf(cf, IteratorMode::End);
+        let mut entries = Vec::with_capacity(n);
+        for item in iter {
+            let (_k, v) = item?;
+            let proto = LogEntryProto::decode(v.as_ref())?;
+            entries.push(LogEntry::try_from(proto)?);
+            if entries.len() >= n {
+                break;
+            }
+        }
+        Ok(entries)
+    }
 }
 
 #[cfg(test)]
@@ -163,6 +187,51 @@ mod tests {
         assert_eq!(entries.len(), 4);
         assert_eq!(entries[0].seq, 3);
         assert_eq!(entries[3].seq, 6);
+    }
+
+    #[test]
+    fn latest_returns_empty_for_empty_log() {
+        let (_dir, db) = open_fresh();
+        let log = db.log_store();
+        assert!(log.latest(5).unwrap().is_empty());
+    }
+
+    #[test]
+    fn latest_returns_zero_for_n_zero() {
+        let (_dir, db) = open_fresh();
+        let log = db.log_store();
+        log.append(b"k", b"v").unwrap();
+        assert!(log.latest(0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn latest_returns_newest_first_and_caps_at_n() {
+        let (_dir, db) = open_fresh();
+        let log = db.log_store();
+        for i in 0u64..10 {
+            log.append(format!("k{i}").as_bytes(), format!("d{i}").as_bytes())
+                .unwrap();
+        }
+        let entries = log.latest(3).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].seq, 9);
+        assert_eq!(entries[1].seq, 8);
+        assert_eq!(entries[2].seq, 7);
+        assert_eq!(entries[0].data, b"d9");
+    }
+
+    #[test]
+    fn latest_returns_all_when_n_exceeds_log_size() {
+        let (_dir, db) = open_fresh();
+        let log = db.log_store();
+        for i in 0u64..3 {
+            log.append(format!("k{i}").as_bytes(), format!("d{i}").as_bytes())
+                .unwrap();
+        }
+        let entries = log.latest(100).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].seq, 2);
+        assert_eq!(entries[2].seq, 0);
     }
 
     #[test]
