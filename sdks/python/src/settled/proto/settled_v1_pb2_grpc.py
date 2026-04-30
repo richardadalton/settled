@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from settled.proto import settled_v1_pb2 as settled_dot_v1__pb2
+from settled.proto import settled_v1_pb2 as settled_dot_proto_dot_settled__v1__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in settled.v1_pb2_grpc.py depends on'
+        + ' but the generated code in settled/proto/settled_v1_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -38,28 +38,33 @@ class SettledLogStub(object):
         """
         self.Append = channel.unary_unary(
                 '/settled.v1.SettledLog/Append',
-                request_serializer=settled_dot_v1__pb2.AppendRequest.SerializeToString,
-                response_deserializer=settled_dot_v1__pb2.AppendResponse.FromString,
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.AppendRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.AppendResponse.FromString,
                 _registered_method=True)
         self.Get = channel.unary_unary(
                 '/settled.v1.SettledLog/Get',
-                request_serializer=settled_dot_v1__pb2.GetRequest.SerializeToString,
-                response_deserializer=settled_dot_v1__pb2.GetResponse.FromString,
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetResponse.FromString,
+                _registered_method=True)
+        self.GetLatest = channel.unary_unary(
+                '/settled.v1.SettledLog/GetLatest',
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
                 _registered_method=True)
         self.GetSth = channel.unary_unary(
                 '/settled.v1.SettledLog/GetSth',
-                request_serializer=settled_dot_v1__pb2.GetSthRequest.SerializeToString,
-                response_deserializer=settled_dot_v1__pb2.GetSthResponse.FromString,
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetSthRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetSthResponse.FromString,
                 _registered_method=True)
         self.InclusionProof = channel.unary_unary(
                 '/settled.v1.SettledLog/InclusionProof',
-                request_serializer=settled_dot_v1__pb2.InclusionProofRequest.SerializeToString,
-                response_deserializer=settled_dot_v1__pb2.InclusionProofResponse.FromString,
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.InclusionProofRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.InclusionProofResponse.FromString,
                 _registered_method=True)
         self.ConsistencyProof = channel.unary_unary(
                 '/settled.v1.SettledLog/ConsistencyProof',
-                request_serializer=settled_dot_v1__pb2.ConsistencyProofRequest.SerializeToString,
-                response_deserializer=settled_dot_v1__pb2.ConsistencyProofResponse.FromString,
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofResponse.FromString,
                 _registered_method=True)
 
 
@@ -77,6 +82,14 @@ class SettledLogServicer(object):
 
     def Get(self, request, context):
         """Retrieve a single entry by sequence number.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetLatest(self, request, context):
+        """Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
+        Returns durably-stored entries; they may not yet be sealed in the latest STH.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -108,28 +121,33 @@ def add_SettledLogServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Append': grpc.unary_unary_rpc_method_handler(
                     servicer.Append,
-                    request_deserializer=settled_dot_v1__pb2.AppendRequest.FromString,
-                    response_serializer=settled_dot_v1__pb2.AppendResponse.SerializeToString,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.AppendRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.AppendResponse.SerializeToString,
             ),
             'Get': grpc.unary_unary_rpc_method_handler(
                     servicer.Get,
-                    request_deserializer=settled_dot_v1__pb2.GetRequest.FromString,
-                    response_serializer=settled_dot_v1__pb2.GetResponse.SerializeToString,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetResponse.SerializeToString,
+            ),
+            'GetLatest': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetLatest,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.SerializeToString,
             ),
             'GetSth': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSth,
-                    request_deserializer=settled_dot_v1__pb2.GetSthRequest.FromString,
-                    response_serializer=settled_dot_v1__pb2.GetSthResponse.SerializeToString,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetSthRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetSthResponse.SerializeToString,
             ),
             'InclusionProof': grpc.unary_unary_rpc_method_handler(
                     servicer.InclusionProof,
-                    request_deserializer=settled_dot_v1__pb2.InclusionProofRequest.FromString,
-                    response_serializer=settled_dot_v1__pb2.InclusionProofResponse.SerializeToString,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.InclusionProofRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.InclusionProofResponse.SerializeToString,
             ),
             'ConsistencyProof': grpc.unary_unary_rpc_method_handler(
                     servicer.ConsistencyProof,
-                    request_deserializer=settled_dot_v1__pb2.ConsistencyProofRequest.FromString,
-                    response_serializer=settled_dot_v1__pb2.ConsistencyProofResponse.SerializeToString,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -159,8 +177,8 @@ class SettledLog(object):
             request,
             target,
             '/settled.v1.SettledLog/Append',
-            settled_dot_v1__pb2.AppendRequest.SerializeToString,
-            settled_dot_v1__pb2.AppendResponse.FromString,
+            settled_dot_proto_dot_settled__v1__pb2.AppendRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.AppendResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -186,8 +204,35 @@ class SettledLog(object):
             request,
             target,
             '/settled.v1.SettledLog/Get',
-            settled_dot_v1__pb2.GetRequest.SerializeToString,
-            settled_dot_v1__pb2.GetResponse.FromString,
+            settled_dot_proto_dot_settled__v1__pb2.GetRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.GetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetLatest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/settled.v1.SettledLog/GetLatest',
+            settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -213,8 +258,8 @@ class SettledLog(object):
             request,
             target,
             '/settled.v1.SettledLog/GetSth',
-            settled_dot_v1__pb2.GetSthRequest.SerializeToString,
-            settled_dot_v1__pb2.GetSthResponse.FromString,
+            settled_dot_proto_dot_settled__v1__pb2.GetSthRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.GetSthResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -240,8 +285,8 @@ class SettledLog(object):
             request,
             target,
             '/settled.v1.SettledLog/InclusionProof',
-            settled_dot_v1__pb2.InclusionProofRequest.SerializeToString,
-            settled_dot_v1__pb2.InclusionProofResponse.FromString,
+            settled_dot_proto_dot_settled__v1__pb2.InclusionProofRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.InclusionProofResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -267,8 +312,8 @@ class SettledLog(object):
             request,
             target,
             '/settled.v1.SettledLog/ConsistencyProof',
-            settled_dot_v1__pb2.ConsistencyProofRequest.SerializeToString,
-            settled_dot_v1__pb2.ConsistencyProofResponse.FromString,
+            settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.ConsistencyProofResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,8 +1,9 @@
 """
 gRPC client for the Settled audit log server.
-Requires proto stubs generated via:
-  python -m grpc_tools.protoc -Iproto --python_out=src/settled/proto \
-    --grpc_python_out=src/settled/proto proto/settled.v1.proto
+Proto stubs are regenerated via:
+  ./scripts/gen-proto.sh
+(which copies proto/settled.v1.proto to a dot-free temp filename so
+protoc emits settled_v1_pb2.py rather than settled/v1_pb2.py).
 """
 from __future__ import annotations
 
@@ -105,6 +106,26 @@ class SettledClient:
             data=bytes(e.data),
             leaf_hash=bytes(e.leaf_hash),
         )
+
+    def get_latest(self, n: int = 1) -> list[Entry]:
+        """Return the most-recent ``n`` entries (newest first).
+
+        ``n == 0`` is treated as 1 by the server. Values above the
+        server cap (currently 1000) are silently clamped. Returns an
+        empty list if the log has no entries yet.
+        """
+        from settled.proto import settled_v1_pb2  # type: ignore[import]
+        res = self._stub.GetLatest(settled_v1_pb2.GetLatestRequest(n=n))
+        return [
+            Entry(
+                seq=e.seq,
+                timestamp_ns=e.timestamp_ns,
+                key=bytes(e.key),
+                data=bytes(e.data),
+                leaf_hash=bytes(e.leaf_hash),
+            )
+            for e in res.entries
+        ]
 
     def get_sth(self, tree_size: int = 0) -> SignedTreeHead:
         from settled.proto import settled_v1_pb2  # type: ignore[import]
