@@ -100,12 +100,33 @@ func (c *SettledClient) Append(ctx context.Context, key, data []byte) (*AppendRe
 
 // Get retrieves a log entry by sequence number.
 func (c *SettledClient) Get(ctx context.Context, seq uint64) (*Entry, error) {
-	res, err := c.stub.Get(ctx, &pb.GetRequest{Seq: seq})
-	if err != nil {
-		return nil, err
-	}
-	e := res.Entry
-	return &Entry{Seq: e.Seq, TimestampNs: e.TimestampNs, Key: e.Key, Data: e.Data, LeafHash: e.LeafHash}, nil
+        res, err := c.stub.Get(ctx, &pb.GetRequest{Seq: seq})
+        if err != nil {
+                return nil, err
+        }
+        e := res.Entry
+        return &Entry{Seq: e.Seq, TimestampNs: e.TimestampNs, Key: e.Key, Data: e.Data, LeafHash: e.LeafHash}, nil
+}
+
+// GetLatest returns the most-recent n entries (newest first). n=0 is
+// treated as 1 by the server. Values above the server cap (currently
+// 1000) are silently clamped.
+func (c *SettledClient) GetLatest(ctx context.Context, n uint32) ([]Entry, error) {
+        res, err := c.stub.GetLatest(ctx, &pb.GetLatestRequest{N: n})
+        if err != nil {
+                return nil, err
+        }
+        out := make([]Entry, len(res.Entries))
+        for i, e := range res.Entries {
+                out[i] = Entry{
+                        Seq:         e.Seq,
+                        TimestampNs: e.TimestampNs,
+                        Key:         e.Key,
+                        Data:        e.Data,
+                        LeafHash:    e.LeafHash,
+                }
+        }
+        return out, nil
 }
 
 // GetSth retrieves a Signed Tree Head. Pass treeSize=0 for latest.
