@@ -8,8 +8,7 @@ services:
     image: settled-server:latest
     ports:
       - "127.0.0.1:8080:8080"  # Admin HTTP — local only
-    # gRPC port (50051) is intentionally NOT exposed to the host.
-    # Only settled-ui (on the internal network) needs to reach it.
+      - "50051:50051"           # gRPC — clients connect here directly
     volumes:
       - server-data:/data
     environment:
