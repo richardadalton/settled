@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package settled.v1;
 
+// Go SDK package mapping. Affects only protoc-gen-go output; other
+// language plugins ignore this option.
+option go_package = "github.com/richardadalton/settled/sdks/go/client/proto;pb";
+
 // ── Append ───────────────────────────────────────────────────────────────────
 
 message AppendRequest {
