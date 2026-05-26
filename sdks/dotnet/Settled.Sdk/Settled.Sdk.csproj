@@ -1,15 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <Version>0.1.0</Version>
     <PackageId>Settled.Sdk</PackageId>
-    <Description>C# SDK for the Settled tamper-evident audit log</Description>
+    <Description>C# SDK for the Settled tamper-evident audit log — gRPC client and RFC 6962 Merkle proof verifier.</Description>
+    <Authors>Richard Dalton</Authors>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/richardadalton/settled</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/richardadalton/settled</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>audit-log;merkle-tree;transparency-log;grpc;rfc6962</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
     <PackageReference Include="Google.Protobuf" Version="3.27.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.63.0" />
     <PackageReference Include="Grpc.Tools" Version="2.63.0" PrivateAssets="All" />
@@ -17,5 +25,10 @@
 
   <ItemGroup>
     <Protobuf Include="../../../proto/settled.v1.proto" GrpcServices="Client" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
-// Ed25519 requires .NET 9+
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Signers;
 
 namespace Settled.Sdk;
 
@@ -145,7 +146,6 @@ public static class Verifier
     /// <summary>
     /// Verify the Ed25519 signature on a Signed Tree Head.
     /// publicKey must be the raw 32-byte Ed25519 public key.
-    /// Requires .NET 9+.
     /// </summary>
     public static bool VerifyTreeHead(
         ulong treeSize,
@@ -157,16 +157,11 @@ public static class Verifier
         try
         {
             var payload = SigningPayload(treeSize, rootHash, timestampNs);
-            // Build SPKI DER: 302a300506032b6570032100 (12 bytes) || raw public key (32 bytes).
-            ReadOnlySpan<byte> spkiHeader = [
-                0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00
-            ];
-            var spki = new byte[spkiHeader.Length + publicKey.Length];
-            spkiHeader.CopyTo(spki);
-            publicKey.CopyTo(spki.AsSpan(spkiHeader.Length));
-            using var key = Ed25519.Create();
-            key.ImportSubjectPublicKeyInfo(spki, out _);
-            return key.VerifyData(payload, signature);
+            var key = new Ed25519PublicKeyParameters(publicKey, 0);
+            var verifier = new Ed25519Signer();
+            verifier.Init(false, key);
+            verifier.BlockUpdate(payload, 0, payload.Length);
+            return verifier.VerifySignature(signature);
         }
         catch
         {
