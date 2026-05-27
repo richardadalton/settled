@@ -1,0 +1,25 @@
+[workspace]
+
+[package]
+name = "settled-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Rust SDK for the Settled tamper-evident audit log"
+repository = "https://github.com/richardadalton/settled"
+license = "Apache-2.0"
+
+[dependencies]
+tonic = { version = "0.11", features = ["transport"] }
+prost = "0.12"
+sha2 = "0.10"
+ed25519-dalek = "2"
+thiserror = "1"
+
+[build-dependencies]
+tonic-build = "0.11"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
