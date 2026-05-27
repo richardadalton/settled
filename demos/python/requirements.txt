@@ -1,1 +1,1 @@
--e ../../sdks/python
+settled-sdk==0.1.0

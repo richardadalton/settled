@@ -320,18 +320,20 @@ The SDKs are client libraries — they are not deployed as services. They are in
 
 | SDK | Install |
 |-----|---------|
-| TypeScript | `npm install @settled/sdk` (or copy from `sdks/typescript/`) |
-| Python | `pip install settled-sdk` (or copy from `sdks/python/`) |
+| TypeScript | `npm install @daltonr/settled-sdk` |
+| Python | `pip install settled-sdk` |
 | Go | `go get github.com/richardadalton/settled/sdks/go` |
-| Java | Add Maven/Gradle dependency from `sdks/java/` |
-| .NET | Add NuGet package from `sdks/dotnet/` |
+| Java | `implementation 'io.github.richardadalton:settled-sdk:0.1.0'` (Gradle) |
+| .NET | `dotnet add package Settled.Sdk` |
 | Rust | Add `settled-client` path dependency from `crates/settled-client/` |
+
+For SDK publishing instructions see [`docs/publishing/`](publishing/).
 
 Each SDK connects to `settled-server` on the gRPC port (default `50051`). The server address is the only configuration an SDK client needs.
 
 ```typescript
 // TypeScript example
-import { SettledClient } from '@settled/sdk';
+import { SettledClient } from '@daltonr/settled-sdk';
 const client = new SettledClient('localhost:50051');
 ```
 

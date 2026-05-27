@@ -1,33 +1,16 @@
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
 import * as http from 'node:http';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROTO_PATH = path.resolve(__dirname, '../../proto/settled.v1.proto');
+import { SettledClient } from '@daltonr/settled-sdk';
 
 const GRPC_ADDR = process.env['SETTLED_ADDR'] ?? 'localhost:50051';
 const PORT = Number(process.env['PORT'] ?? 3001);
 
-const packageDef = protoLoader.loadSync(PROTO_PATH, {
-  keepCase: true,
-  longs: String,
-  defaults: true,
-});
-const pkg = grpc.loadPackageDefinition(packageDef) as Record<string, unknown>;
-const SettledLog = (pkg['settled'] as Record<string, unknown>)['v1'] as Record<string, grpc.ServiceClientConstructor>;
-const stub = new SettledLog['SettledLog'](GRPC_ADDR, grpc.credentials.createInsecure());
+const client = new SettledClient(GRPC_ADDR);
 
-function call<T>(method: string, req: Record<string, unknown>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    (stub as unknown as Record<string, Function>)[method](
-      req,
-      (err: grpc.ServiceError | null, res: T) => {
-        if (err) reject(err); else resolve(res);
-      },
-    );
-  });
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function hex(b: Uint8Array): string {
+  return Buffer.from(b).toString('hex');
 }
 
 function cors(res: http.ServerResponse): void {
@@ -62,38 +45,28 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (url.pathname === '/api/entries' && req.method === 'GET') {
-      const sthRes = await call<Record<string, Record<string, string>>>('getSth', { tree_size: '0' });
-      const treeSize = Number(sthRes['sth']['tree_size']);
-
+      const sth = await client.getSth();
       const entries = await Promise.all(
-        Array.from({ length: treeSize }, (_, i) =>
-          call<Record<string, Record<string, Buffer | string>>>('get', { seq: String(i) }).then((r) => {
-            const e = r['entry'];
-            return {
-              seq: String(e['seq']),
-              key: Buffer.from(e['key'] as Buffer).toString(),
-              data: Buffer.from(e['data'] as Buffer).toString(),
-              timestampNs: String(e['timestamp_ns']),
-              leafHash: Buffer.from(e['leaf_hash'] as Buffer).toString('hex'),
-            };
-          }),
+        Array.from({ length: Number(sth.treeSize) }, (_, i) =>
+          client.get(BigInt(i)).then((e) => ({
+            seq: String(e.seq),
+            key: dec.decode(e.key),
+            data: dec.decode(e.data),
+            timestampNs: String(e.timestampNs),
+            leafHash: hex(e.leafHash),
+          })),
         ),
       );
-
       return json(res, entries);
     }
 
     if (url.pathname === '/api/entries' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req)) as { key: string; data: string };
-      const enc = new TextEncoder();
-      const result = await call<Record<string, Buffer | string>>('append', {
-        key: enc.encode(body.key),
-        data: enc.encode(body.data),
-      });
+      const result = await client.append(enc.encode(body.key), enc.encode(body.data));
       return json(res, {
-        seq: String(result['seq']),
-        timestampNs: String(result['timestamp_ns']),
-        leafHash: Buffer.from(result['leaf_hash'] as Buffer).toString('hex'),
+        seq: String(result.seq),
+        timestampNs: String(result.timestampNs),
+        leafHash: hex(result.leafHash),
       });
     }
 

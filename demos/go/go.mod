@@ -2,7 +2,7 @@ module github.com/richardadalton/settled/demos/go
 
 go 1.22
 
-require github.com/richardadalton/settled/sdks/go v0.0.0
+require github.com/richardadalton/settled/sdks/go v0.1.0
 
 require (
 	golang.org/x/net v0.22.0 // indirect
@@ -12,5 +12,3 @@ require (
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.34.0 // indirect
 )
-
-replace github.com/richardadalton/settled/sdks/go => ../../sdks/go

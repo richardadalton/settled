@@ -1,0 +1,30 @@
+plugins {
+    id 'application'
+}
+
+group = 'io.settled'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'io.github.richardadalton:settled-sdk:0.1.0'
+}
+
+application {
+    mainClass = 'io.settled.demo.Demo'
+}
+
+run {
+    if (project.hasProperty('args')) {
+        args project.getProperty('args').split('\\s+').toList()
+    }
+    standardInput = System.in
+}

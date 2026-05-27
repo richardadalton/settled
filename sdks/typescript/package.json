@@ -1,5 +1,5 @@
 {
-  "name": "@settled/sdk",
+  "name": "@daltonr/settled-sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for the Settled tamper-evident audit log",
   "type": "module",

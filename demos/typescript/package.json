@@ -9,8 +9,7 @@
     "dev": "concurrently -n api,ui -c blue,green \"npm run dev:api\" \"npm run dev:ui\""
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.12.0",
-    "@grpc/proto-loader": "^0.7.13"
+    "@daltonr/settled-sdk": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

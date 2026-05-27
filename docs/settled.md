@@ -296,7 +296,7 @@ The gRPC stub layer is fully generated from the proto file. The SDK wraps the ge
 ### 7.2 TypeScript SDK
 
 ```typescript
-import { SettledClient } from '@settled/client';
+import { SettledClient } from '@daltonr/settled-sdk';
 
 const client = new SettledClient({
   url: 'grpc://localhost:9000',

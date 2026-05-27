@@ -143,6 +143,8 @@ cargo run --bin gen-sth-vectors            # Ed25519 signed tree head vectors
 - [`docs/wire-format.md`](docs/wire-format.md) — hash constructions, proof algorithms, STH signing payload, duplicate key semantics
 - [`docs/storage-schema.md`](docs/storage-schema.md) — RocksDB column family layout, key encodings, protobuf schemas
 - [`docs/implementation-plan.md`](docs/implementation-plan.md) — full build plan with completion gates for each phase
+- [`docs/deployment.md`](docs/deployment.md) — running the server, Docker, systemd, networking
+- [`docs/publishing/`](docs/publishing/) — how to publish each SDK to its registry (npm, PyPI, Maven Central, NuGet, pkg.go.dev)
 
 ## Licence
 
