@@ -1001,6 +1001,8 @@ dependencies = [
 [[package]]
 name = "settled-sdk"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb3447616fe248c1ca721b4abca1f9c7aca43d30082a08188cb322921b7af90d"
 dependencies = [
  "ed25519-dalek",
  "prost",
