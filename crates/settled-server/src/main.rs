@@ -26,6 +26,11 @@ struct Args {
 
     #[arg(long, default_value_t = 60)]
     sth_interval_secs: u64,
+
+    /// API key clients must present as `authorization: Bearer <key>`.
+    /// Falls back to $SETTLED_API_KEY. If neither is set, auth is disabled (dev mode).
+    #[arg(long, env = "SETTLED_API_KEY")]
+    api_key: Option<String>,
 }
 
 #[tokio::main]
@@ -43,6 +48,7 @@ async fn main() -> anyhow::Result<()> {
         listen: args.listen,
         admin_listen: args.admin_listen,
         sth_interval_secs: args.sth_interval_secs,
+        api_key: args.api_key,
     };
 
     let state = AppState::build(config.clone()).await?;
@@ -59,9 +65,30 @@ async fn main() -> anyhow::Result<()> {
             .ok();
     });
 
+    if config.api_key.is_none() {
+        tracing::warn!("SETTLED_API_KEY is not set — server accepts unauthenticated requests");
+    }
+    let api_key = config.api_key.clone();
     tracing::info!("gRPC listening on {}", config.listen);
     Server::builder()
-        .add_service(SettledLogServer::new(SettledService::new(state)))
+        .add_service(SettledLogServer::with_interceptor(
+            SettledService::new(state),
+            move |req: tonic::Request<()>| {
+                if let Some(ref expected) = api_key {
+                    let ok = req
+                        .metadata()
+                        .get("authorization")
+                        .is_some_and(|v| v.as_bytes() == format!("Bearer {expected}").as_bytes());
+                    if ok {
+                        Ok(req)
+                    } else {
+                        Err(tonic::Status::unauthenticated("missing or invalid api key"))
+                    }
+                } else {
+                    Ok(req)
+                }
+            },
+        ))
         .serve(config.listen)
         .await?;
 

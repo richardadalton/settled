@@ -9,4 +9,7 @@ pub struct Config {
     /// HTTP admin API listen address (health, metrics).
     pub admin_listen: SocketAddr,
     pub sth_interval_secs: u64,
+    /// If set, every gRPC request must carry `authorization: Bearer <key>`.
+    /// If unset, auth is disabled (development mode).
+    pub api_key: Option<String>,
 }

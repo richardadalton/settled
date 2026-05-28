@@ -67,10 +67,13 @@ function fromSth(raw: Record<string, unknown>): SignedTreeHead {
 export interface ClientOptions {
   /** Reconnect on transient failures. Default: true. */
   reconnect?: boolean;
+  /** API key sent as `authorization: Bearer <key>` on every request. */
+  apiKey?: string;
 }
 
 export class SettledClient {
   private readonly stub: grpc.Client;
+  private readonly metadata: grpc.Metadata;
 
   constructor(address: string, options: ClientOptions = {}) {
     const SettledLog = loadServiceStub();
@@ -79,6 +82,10 @@ export class SettledClient {
       channelOptions['grpc.enable_retries'] = 1;
     }
     this.stub = new SettledLog(address, grpc.credentials.createInsecure(), channelOptions);
+    this.metadata = new grpc.Metadata();
+    if (options.apiKey) {
+      this.metadata.set('authorization', `Bearer ${options.apiKey}`);
+    }
   }
 
   close(): void {
@@ -99,6 +106,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['append'](
         { key, data },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           resolve({
@@ -115,6 +123,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['get'](
         { seq: seq.toString() },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           const e = res['entry'] as Record<string, unknown>;
@@ -141,6 +150,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['getLatest'](
         { n },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           const entries = ((res['entries'] as unknown[]) ?? []).map((raw) => {
@@ -163,6 +173,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['getSth'](
         { tree_size: treeSize.toString() },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           resolve(fromSth(res['sth'] as Record<string, unknown>));
@@ -175,6 +186,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['inclusionProof'](
         { seq: seq.toString(), tree_size: treeSize.toString() },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           resolve({
@@ -192,6 +204,7 @@ export class SettledClient {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['consistencyProof'](
         { old_size: oldSize.toString(), new_size: newSize.toString() },
+        this.metadata,
         (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
           if (err) return reject(err);
           resolve({

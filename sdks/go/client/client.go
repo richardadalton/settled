@@ -17,6 +17,26 @@ import (
 	pb "github.com/richardadalton/settled/sdks/go/client/proto"
 )
 
+// Option configures a SettledClient.
+type Option func(*clientConfig)
+
+type clientConfig struct {
+	apiKey string
+}
+
+// WithAPIKey sets the API key sent as `authorization: Bearer <key>` on every request.
+func WithAPIKey(key string) Option {
+	return func(c *clientConfig) { c.apiKey = key }
+}
+
+type apiKeyCredentials struct{ key string }
+
+func (a apiKeyCredentials) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	return map[string]string{"authorization": "Bearer " + a.key}, nil
+}
+
+func (a apiKeyCredentials) RequireTransportSecurity() bool { return false }
+
 // SignedTreeHead mirrors the protobuf message with native Go types.
 type SignedTreeHead struct {
 	TreeSize    uint64
@@ -77,9 +97,17 @@ type SettledClient struct {
 	stub pb.SettledLogClient
 }
 
-// New connects to the server at addr.
-func New(addr string) (*SettledClient, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// New connects to the server at addr, with optional configuration.
+func New(addr string, opts ...Option) (*SettledClient, error) {
+	cfg := &clientConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	grpcOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if cfg.apiKey != "" {
+		grpcOpts = append(grpcOpts, grpc.WithPerRPCCredentials(apiKeyCredentials{cfg.apiKey}))
+	}
+	conn, err := grpc.NewClient(addr, grpcOpts...)
 	if err != nil {
 		return nil, err
 	}

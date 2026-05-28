@@ -50,27 +50,31 @@ public sealed class SettledClient : IDisposable
 {
     private readonly GrpcChannel _channel;
     private readonly SettledLog.SettledLogClient _stub;
+    private readonly Grpc.Core.Metadata _headers;
 
-    public SettledClient(string address)
+    public SettledClient(string address, string? apiKey = null)
     {
         _channel = GrpcChannel.ForAddress(address, new GrpcChannelOptions
         {
             Credentials = Grpc.Core.ChannelCredentials.Insecure,
         });
         _stub = new SettledLog.SettledLogClient(_channel);
+        _headers = new Grpc.Core.Metadata();
+        if (apiKey is not null)
+            _headers.Add("authorization", $"Bearer {apiKey}");
     }
 
     public void Dispose() => _channel.Dispose();
 
     public async Task<AppendResult> AppendAsync(byte[] key, byte[] data, CancellationToken ct = default)
     {
-        var res = await _stub.AppendAsync(new AppendRequest { Key = Google.Protobuf.ByteString.CopyFrom(key), Data = Google.Protobuf.ByteString.CopyFrom(data) }, cancellationToken: ct);
+        var res = await _stub.AppendAsync(new AppendRequest { Key = Google.Protobuf.ByteString.CopyFrom(key), Data = Google.Protobuf.ByteString.CopyFrom(data) }, headers: _headers, cancellationToken: ct);
         return new AppendResult { Seq = res.Seq, TimestampNs = res.TimestampNs, LeafHash = res.LeafHash.ToByteArray() };
     }
 
     public async Task<Entry> GetAsync(ulong seq, CancellationToken ct = default)
     {
-        var res = await _stub.GetAsync(new GetRequest { Seq = seq }, cancellationToken: ct);
+        var res = await _stub.GetAsync(new GetRequest { Seq = seq }, headers: _headers, cancellationToken: ct);
         return MapEntry(res.Entry);
     }
 
@@ -80,21 +84,21 @@ public sealed class SettledClient : IDisposable
     /// </summary>
     public async Task<IReadOnlyList<Entry>> GetLatestAsync(uint n = 1, CancellationToken ct = default)
     {
-        var res = await _stub.GetLatestAsync(new GetLatestRequest { N = n }, cancellationToken: ct);
+        var res = await _stub.GetLatestAsync(new GetLatestRequest { N = n }, headers: _headers, cancellationToken: ct);
         return res.Entries.Select(MapEntry).ToArray();
     }
 
     /// <summary>Retrieve a Signed Tree Head. Pass treeSize=0 for the latest.</summary>
     public async Task<Sth> GetSthAsync(ulong treeSize = 0, CancellationToken ct = default)
     {
-        var res = await _stub.GetSthAsync(new GetSthRequest { TreeSize = treeSize }, cancellationToken: ct);
+        var res = await _stub.GetSthAsync(new GetSthRequest { TreeSize = treeSize }, headers: _headers, cancellationToken: ct);
         return MapSth(res.Sth);
     }
 
     /// <summary>Return an inclusion proof for seq against the given tree size (0 = latest).</summary>
     public async Task<InclusionProofResult> InclusionProofAsync(ulong seq, ulong treeSize = 0, CancellationToken ct = default)
     {
-        var res = await _stub.InclusionProofAsync(new InclusionProofRequest { Seq = seq, TreeSize = treeSize }, cancellationToken: ct);
+        var res = await _stub.InclusionProofAsync(new InclusionProofRequest { Seq = seq, TreeSize = treeSize }, headers: _headers, cancellationToken: ct);
         return new InclusionProofResult
         {
             LeafIndex = res.LeafIndex,
@@ -107,7 +111,7 @@ public sealed class SettledClient : IDisposable
     /// <summary>Return a consistency proof between two tree sizes (newSize=0 = latest).</summary>
     public async Task<ConsistencyProofResult> ConsistencyProofAsync(ulong oldSize, ulong newSize = 0, CancellationToken ct = default)
     {
-        var res = await _stub.ConsistencyProofAsync(new ConsistencyProofRequest { OldSize = oldSize, NewSize = newSize }, cancellationToken: ct);
+        var res = await _stub.ConsistencyProofAsync(new ConsistencyProofRequest { OldSize = oldSize, NewSize = newSize }, headers: _headers, cancellationToken: ct);
         return new ConsistencyProofResult
         {
             OldSize = res.OldSize,

@@ -72,18 +72,37 @@ The data directory contains:
 | `--listen` | `0.0.0.0:50051` | gRPC listen address |
 | `--admin-listen` | `0.0.0.0:8080` | Admin HTTP listen address |
 | `--sth-interval-secs` | `60` | How often to sign a new STH (seconds) |
+| `--api-key` | *(unset)* | Shared secret clients must present as `authorization: Bearer <key>`. Also read from `$SETTLED_API_KEY`. If unset, auth is disabled (dev mode only). |
 | `--max-push-failures` | `6` | Consecutive push failures before a settled node is flagged dead |
 | `--push-timeout-ms` | `5000` | Per-attempt timeout when pushing STHs to settled nodes |
 | `--threshold` | `0` | Minimum counter-signatures required for a FinalSTH (0 = threshold disabled) |
 
+### Authentication
+
+The server enforces a shared API key when `--api-key` (or `$SETTLED_API_KEY`) is set. Every gRPC client must include the header:
+
+```
+authorization: Bearer <key>
+```
+
+If neither the flag nor the environment variable is set the server starts in **dev mode** and logs a warning — all requests are accepted without credentials. Always set an API key in production.
+
+```sh
+# Generate a random key
+export SETTLED_API_KEY=$(openssl rand -hex 32)
+
+# Or pass it as a flag
+settled-server --data-dir /var/lib/settled --api-key "$SETTLED_API_KEY"
+```
+
 ### Starting the server
 
 ```sh
-# Minimal — uses all defaults
+# Development — no auth
 settled-server --data-dir /var/lib/settled
 
-# Production — explicit addresses, 30-second STH interval
-settled-server \
+# Production — with API key
+SETTLED_API_KEY=<your-key> settled-server \
   --data-dir /var/lib/settled \
   --listen 0.0.0.0:50051 \
   --admin-listen 127.0.0.1:8080 \

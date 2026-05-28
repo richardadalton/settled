@@ -1,14 +1,17 @@
 package io.settled.sdk;
 
 import com.google.protobuf.ByteString;
+import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Metadata;
 import settled.v1.SettledLogGrpc;
 import settled.v1.SettledV1;
 import settled.v1.SettledV1.*;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -20,10 +23,32 @@ public final class SettledClient implements Closeable {
     private final SettledLogGrpc.SettledLogBlockingStub stub;
 
     public SettledClient(String host) {
-        this.channel = ManagedChannelBuilder.forTarget(host)
-                .usePlaintext()
-                .build();
-        this.stub = SettledLogGrpc.newBlockingStub(channel);
+        this(host, null);
+    }
+
+    public SettledClient(String host, String apiKey) {
+        this.channel = ManagedChannelBuilder.forTarget(host).usePlaintext().build();
+        SettledLogGrpc.SettledLogBlockingStub s = SettledLogGrpc.newBlockingStub(channel);
+        this.stub = apiKey != null ? s.withCallCredentials(new ApiKeyCredentials(apiKey)) : s;
+    }
+
+    private static final class ApiKeyCredentials extends CallCredentials {
+        private static final Metadata.Key<String> AUTH_KEY =
+                Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
+        private final String bearer;
+
+        ApiKeyCredentials(String apiKey) {
+            this.bearer = "Bearer " + apiKey;
+        }
+
+        @Override
+        public void applyRequestMetadata(RequestInfo ri, Executor ex, MetadataApplier applier) {
+            ex.execute(() -> {
+                Metadata headers = new Metadata();
+                headers.put(AUTH_KEY, bearer);
+                applier.apply(headers);
+            });
+        }
     }
 
     @Override
