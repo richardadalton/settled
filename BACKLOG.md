@@ -139,12 +139,6 @@ The proto comment acknowledges silent clamping. Callers cannot tell they receive
 - Add `has_more: bool` or `total_available: uint64` to `GetLatestResponse`
 - Update all SDKs to surface this
 
-### No graceful shutdown handling
-No documented SIGTERM handler in `settled-server`. In-flight appends at shutdown time may not be acknowledged.
-- Add `tokio::signal::ctrl_c()` + SIGTERM handler in `main.rs`
-- Drain in-flight RPCs before exit (tonic `graceful_shutdown`)
-- Ensure the STH task finishes its current signing cycle before exit
-
 ### Proto versioning policy is undocumented
 The package is `settled.v1` implying future breaking changes go in `settled.v2`, but there is no stated policy on what constitutes a breaking change.
 - Document the proto versioning policy

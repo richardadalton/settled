@@ -24,8 +24,9 @@ use tonic::transport::Server;
 
 /// Boots a real `settled-server` on `127.0.0.1:0` (ephemeral port) backed
 /// by a fresh `TempDir`. Returns the bound address, the temp dir guard
-/// (must be kept alive for the test's lifetime), and a connected SDK client.
-async fn boot() -> (SocketAddr, TempDir, SettledClient) {
+/// (must be kept alive for the test's lifetime), a connected SDK client, and
+/// the STH-task shutdown sender (drop it to stop the task cleanly).
+async fn boot() -> (SocketAddr, TempDir, SettledClient, tokio::sync::watch::Sender<bool>) {
     let tmp = TempDir::new().expect("tempdir");
     let data_dir = tmp.path().to_path_buf();
     let key_path = data_dir.join("signing.key");
@@ -44,7 +45,8 @@ async fn boot() -> (SocketAddr, TempDir, SettledClient) {
 
     let state = AppState::build(config).await.expect("AppState::build");
 
-    tokio::spawn(settled_server::sth_task::run(state.clone()));
+    let (sth_tx, sth_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(settled_server::sth_task::run(state.clone(), sth_rx));
 
     let incoming = TcpListenerStream::new(listener);
     let svc = SettledService::new(state);
@@ -62,7 +64,7 @@ async fn boot() -> (SocketAddr, TempDir, SettledClient) {
         .await
         .expect("client connect");
 
-    (addr, tmp, client)
+    (addr, tmp, client, sth_tx)
 }
 
 /// Polls `get_sth(0)` until an STH of at least `min_size` is published,
@@ -89,7 +91,7 @@ fn b32(bytes: &[u8]) -> [u8; 32] {
 
 #[tokio::test]
 async fn append_returns_monotonic_seqs_and_correct_leaf_hash() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     for i in 0..50u64 {
         let data = format!("payload-{i}").into_bytes();
@@ -109,7 +111,7 @@ async fn append_returns_monotonic_seqs_and_correct_leaf_hash() {
 
 #[tokio::test]
 async fn get_round_trips_data_unchanged() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     let payloads: Vec<Vec<u8>> = (0..20).map(|i| format!("entry-{i}").into_bytes()).collect();
 
@@ -129,7 +131,7 @@ async fn get_round_trips_data_unchanged() {
 
 #[tokio::test]
 async fn get_unknown_seq_returns_not_found() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     let err = client.get(99_999).await.expect_err("expected NotFound");
     let settled_sdk::ClientError::Rpc(status) = err else {
@@ -140,7 +142,7 @@ async fn get_unknown_seq_returns_not_found() {
 
 #[tokio::test]
 async fn concurrent_appends_have_unique_gap_free_seqs() {
-    let (addr, _tmp, _seed) = boot().await;
+    let (addr, _tmp, _seed, _sth) = boot().await;
     const N: u64 = 100;
 
     let mut set = JoinSet::new();
@@ -166,7 +168,7 @@ async fn concurrent_appends_have_unique_gap_free_seqs() {
 
 #[tokio::test]
 async fn get_latest_returns_newest_first_and_clamps_zero_to_one() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     for i in 0..10u64 {
         client
@@ -193,7 +195,7 @@ async fn get_latest_returns_newest_first_and_clamps_zero_to_one() {
 
 #[tokio::test]
 async fn get_latest_on_empty_log_returns_no_entries() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     let entries = client.get_latest(5).await.expect("get_latest");
     assert!(entries.is_empty(), "empty log must return no entries");
@@ -201,7 +203,7 @@ async fn get_latest_on_empty_log_returns_no_entries() {
 
 #[tokio::test]
 async fn signed_tree_head_signature_verifies() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     for i in 0..10u64 {
         client
@@ -232,7 +234,7 @@ async fn signed_tree_head_signature_verifies() {
 
 #[tokio::test]
 async fn inclusion_proof_verifies_against_sdk() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     let n: u64 = 30;
     let mut leaf_hashes: Vec<[u8; 32]> = Vec::with_capacity(n as usize);
@@ -265,7 +267,7 @@ async fn inclusion_proof_verifies_against_sdk() {
 
 #[tokio::test]
 async fn consistency_proof_between_two_sths_verifies() {
-    let (_addr, _tmp, mut client) = boot().await;
+    let (_addr, _tmp, mut client, _sth) = boot().await;
 
     for i in 0..20u64 {
         client

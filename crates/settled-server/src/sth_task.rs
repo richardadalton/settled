@@ -5,12 +5,30 @@ use settled_storage::SignedTreeHead;
 use crate::signer::Signer;
 use crate::state::AppState;
 
-pub async fn run(state: AppState) {
+/// Run the STH signing loop.
+///
+/// Wakes every `sth_interval_secs` to sign the current tree root. When
+/// `shutdown` resolves (value changes or sender is dropped) the task performs
+/// one final signing cycle — capturing any entries appended since the last
+/// interval — then returns so callers can await a clean exit.
+pub async fn run(state: AppState, mut shutdown: tokio::sync::watch::Receiver<bool>) {
     let interval = Duration::from_secs(state.config.sth_interval_secs);
     loop {
-        tokio::time::sleep(interval).await;
-        if let Err(e) = sign_and_store(&state) {
-            tracing::error!("STH signing failed: {e}");
+        tokio::select! {
+            _ = tokio::time::sleep(interval) => {
+                if let Err(e) = sign_and_store(&state) {
+                    tracing::error!("STH signing failed: {e}");
+                }
+            }
+            _ = shutdown.changed() => {
+                // Final sign before exit to capture any entries appended
+                // since the last interval.
+                if let Err(e) = sign_and_store(&state) {
+                    tracing::error!("STH signing failed on shutdown: {e}");
+                }
+                tracing::info!("STH task shut down");
+                return;
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use clap::Parser;
 use settled_server::proto::settled_log_server::SettledLogServer;
@@ -33,6 +34,31 @@ struct Args {
     api_key: Option<String>,
 }
 
+/// Resolves on SIGTERM (Unix) or Ctrl-C, whichever arrives first.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl-C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => tracing::info!("Received Ctrl-C"),
+        _ = terminate => tracing::info!("Received SIGTERM"),
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
@@ -53,14 +79,23 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState::build(config.clone()).await?;
 
-    tokio::spawn(settled_server::sth_task::run(state.clone()));
+    // Shutdown coordination: one watch channel, multiple receivers.
+    let (shutdown_tx, sth_rx) = tokio::sync::watch::channel(false);
+    let admin_rx = shutdown_tx.subscribe();
 
-    // Launch HTTP admin server.
+    // STH signing task — runs until shutdown_tx signals it.
+    let sth_handle = tokio::spawn(settled_server::sth_task::run(state.clone(), sth_rx));
+
+    // Admin HTTP server with graceful shutdown.
     let admin_listener = TcpListener::bind(config.admin_listen).await?;
     tracing::info!("Admin API listening on {}", config.admin_listen);
     let admin_state = state.clone();
     tokio::spawn(async move {
         axum::serve(admin_listener, settled_server::admin::router(admin_state))
+            .with_graceful_shutdown(async move {
+                let mut rx = admin_rx;
+                let _ = rx.changed().await;
+            })
             .await
             .ok();
     });
@@ -70,6 +105,8 @@ async fn main() -> anyhow::Result<()> {
     }
     let api_key = config.api_key.clone();
     tracing::info!("gRPC listening on {}", config.listen);
+
+    // gRPC server: blocks until the shutdown signal fires, then drains in-flight RPCs.
     Server::builder()
         .add_service(SettledLogServer::with_interceptor(
             SettledService::new(state),
@@ -90,8 +127,22 @@ async fn main() -> anyhow::Result<()> {
                 }
             },
         ))
-        .serve(config.listen)
+        .serve_with_shutdown(config.listen, shutdown_signal())
         .await?;
 
+    tracing::info!("gRPC drained; shutting down remaining tasks");
+
+    // Notify the STH task and admin server.
+    let _ = shutdown_tx.send(true);
+
+    // Wait up to 10 s for the STH task to finish its final signing cycle.
+    if tokio::time::timeout(Duration::from_secs(10), sth_handle)
+        .await
+        .is_err()
+    {
+        tracing::warn!("STH task did not finish within 10 s");
+    }
+
+    tracing::info!("Shutdown complete");
     Ok(())
 }
