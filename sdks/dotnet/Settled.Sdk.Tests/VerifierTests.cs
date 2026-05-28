@@ -118,6 +118,40 @@ public class VerifierTests
         }
     }
 
+    // ── Sequential STH verification ───────────────────────────────────────────
+
+    [Fact]
+    public void SthSequentialVectors()
+    {
+        var vectors = Load("signed-tree-heads.json").EnumerateArray().ToList();
+
+        // Consecutive pairs must pass (timestamps are strictly increasing).
+        for (var i = 0; i + 1 < vectors.Count; i++)
+        {
+            var prev = vectors[i];
+            var curr = vectors[i + 1];
+            var ok = Verifier.VerifyTreeHeadSequential(
+                (ulong)curr.GetProperty("tree_size").GetInt64(),
+                H(curr.GetProperty("root_hash_hex").GetString()!),
+                curr.GetProperty("timestamp_ns").GetInt64(),
+                H(curr.GetProperty("signature_hex").GetString()!),
+                H(curr.GetProperty("public_key_hex").GetString()!),
+                prev.GetProperty("timestamp_ns").GetInt64());
+            Assert.True(ok, $"{curr.GetProperty("description")} after {prev.GetProperty("description")}");
+        }
+
+        // Equal timestamp must fail.
+        var v = vectors[0];
+        var ts = v.GetProperty("timestamp_ns").GetInt64();
+        Assert.False(Verifier.VerifyTreeHeadSequential(
+            (ulong)v.GetProperty("tree_size").GetInt64(),
+            H(v.GetProperty("root_hash_hex").GetString()!),
+            ts,
+            H(v.GetProperty("signature_hex").GetString()!),
+            H(v.GetProperty("public_key_hex").GetString()!),
+            ts), "equal timestamp must fail");
+    }
+
     // ── Negative cases ────────────────────────────────────────────────────────
 
     [Fact]
@@ -145,6 +179,17 @@ public class VerifierTests
                     Proofs(v.GetProperty("proof_hex")),
                     H(v.GetProperty("old_root_hex").GetString()!),
                     H(v.GetProperty("new_root_hex").GetString()!));
+                Assert.Equal(expected, got);
+            }
+            else if (kv.Name.StartsWith("tree_head_sequential_"))
+            {
+                var got = Verifier.VerifyTreeHeadSequential(
+                    (ulong)v.GetProperty("tree_size").GetInt64(),
+                    H(v.GetProperty("root_hash_hex").GetString()!),
+                    v.GetProperty("timestamp_ns").GetInt64(),
+                    H(v.GetProperty("signature_hex").GetString()!),
+                    H(v.GetProperty("public_key_hex").GetString()!),
+                    v.GetProperty("previous_timestamp_ns").GetInt64());
                 Assert.Equal(expected, got);
             }
         }

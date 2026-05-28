@@ -165,6 +165,24 @@ pub fn verify_tree_head_with_chain(
     verify_tree_head(tree_size, root_hash, timestamp_ns, signature, &record.public_key)
 }
 
+/// Verifies an STH and enforces that its timestamp is strictly later than
+/// `previous_timestamp_ns`. Returns false if `timestamp_ns <= previous_timestamp_ns`
+/// or if the signature is invalid. Use this when processing a sequence of STHs to
+/// guard against replayed or out-of-order tree heads.
+pub fn verify_tree_head_sequential(
+    tree_size: u64,
+    root_hash: [u8; 32],
+    timestamp_ns: i64,
+    signature: &[u8],
+    public_key: &[u8],
+    previous_timestamp_ns: i64,
+) -> bool {
+    if timestamp_ns <= previous_timestamp_ns {
+        return false;
+    }
+    verify_tree_head(tree_size, root_hash, timestamp_ns, signature, public_key)
+}
+
 /// Verifies the Ed25519 signature on a Signed Tree Head.
 /// `public_key` must be 32 raw bytes; `signature` must be 64 raw bytes.
 pub fn verify_tree_head(

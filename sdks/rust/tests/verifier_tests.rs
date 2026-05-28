@@ -1,4 +1,7 @@
-use settled_sdk::verifier::{leaf_hash, node_hash, verify_consistency, verify_inclusion, verify_tree_head};
+use settled_sdk::verifier::{
+    leaf_hash, node_hash, verify_consistency, verify_inclusion, verify_tree_head,
+    verify_tree_head_sequential,
+};
 use std::path::PathBuf;
 
 fn vectors_dir() -> PathBuf {
@@ -155,6 +158,56 @@ fn test_verify_tree_head() {
     }
 }
 
+// ── Sequential STH verification ───────────────────────────────────────────────
+
+#[test]
+fn test_verify_tree_head_sequential() {
+    #[derive(serde::Deserialize)]
+    struct Vector {
+        description: String,
+        tree_size: u64,
+        root_hash_hex: String,
+        timestamp_ns: i64,
+        signature_hex: String,
+        public_key_hex: String,
+    }
+    let vectors: Vec<Vector> =
+        serde_json::from_slice(&load_json("signed-tree-heads.json")).unwrap();
+
+    // Consecutive pairs must pass sequential verification (timestamps are strictly increasing).
+    for pair in vectors.windows(2) {
+        let prev = &pair[0];
+        let curr = &pair[1];
+        assert!(
+            verify_tree_head_sequential(
+                curr.tree_size,
+                b32(&curr.root_hash_hex),
+                curr.timestamp_ns,
+                &h(&curr.signature_hex),
+                &h(&curr.public_key_hex),
+                prev.timestamp_ns,
+            ),
+            "{} after {}",
+            curr.description,
+            prev.description,
+        );
+    }
+
+    // Same STH with itself as previous must fail (equal timestamp).
+    let v = &vectors[0];
+    assert!(
+        !verify_tree_head_sequential(
+            v.tree_size,
+            b32(&v.root_hash_hex),
+            v.timestamp_ns,
+            &h(&v.signature_hex),
+            &h(&v.public_key_hex),
+            v.timestamp_ns,
+        ),
+        "equal timestamp must fail",
+    );
+}
+
 // ── Negative cases ────────────────────────────────────────────────────────────
 
 #[test]
@@ -193,6 +246,16 @@ fn test_negative_cases() {
                     .collect::<Vec<_>>(),
                 b32(v["old_root_hex"].as_str().unwrap()),
                 b32(v["new_root_hex"].as_str().unwrap()),
+            );
+            assert_eq!(got, expected, "{name}");
+        } else if name.starts_with("tree_head_sequential_") {
+            let got = verify_tree_head_sequential(
+                v["tree_size"].as_u64().unwrap(),
+                b32(v["root_hash_hex"].as_str().unwrap()),
+                v["timestamp_ns"].as_i64().unwrap(),
+                &h(v["signature_hex"].as_str().unwrap()),
+                &h(v["public_key_hex"].as_str().unwrap()),
+                v["previous_timestamp_ns"].as_i64().unwrap(),
             );
             assert_eq!(got, expected, "{name}");
         }

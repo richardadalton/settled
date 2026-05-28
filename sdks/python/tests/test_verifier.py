@@ -10,6 +10,7 @@ from settled.verifier import (
     verify_consistency,
     verify_inclusion,
     verify_tree_head,
+    verify_tree_head_sequential,
 )
 
 VECTORS = Path(__file__).parent.parent.parent.parent / "test-vectors"
@@ -147,3 +148,45 @@ class TestVerifyTreeHead:
             h(v["signature_hex"]),
             h(v["public_key_hex"]),
         )
+
+
+# ── Sequential STH verification ───────────────────────────────────────────────
+
+class TestVerifyTreeHeadSequential:
+    def test_consecutive_pairs_pass(self):
+        vectors = load("signed-tree-heads.json")
+        for prev, curr in zip(vectors, vectors[1:]):
+            assert verify_tree_head_sequential(
+                curr["tree_size"],
+                h(curr["root_hash_hex"]),
+                curr["timestamp_ns"],
+                h(curr["signature_hex"]),
+                h(curr["public_key_hex"]),
+                prev["timestamp_ns"],
+            ), f"{curr['description']} after {prev['description']}"
+
+    def test_equal_timestamp_fails(self):
+        v = load("signed-tree-heads.json")[0]
+        assert not verify_tree_head_sequential(
+            v["tree_size"],
+            h(v["root_hash_hex"]),
+            v["timestamp_ns"],
+            h(v["signature_hex"]),
+            h(v["public_key_hex"]),
+            v["timestamp_ns"],
+        )
+
+    def test_negative_cases(self):
+        cases = load("negative-cases.json")
+        for name, v in cases.items():
+            if not name.startswith("tree_head_sequential_"):
+                continue
+            result = verify_tree_head_sequential(
+                v["tree_size"],
+                h(v["root_hash_hex"]),
+                v["timestamp_ns"],
+                h(v["signature_hex"]),
+                h(v["public_key_hex"]),
+                v["previous_timestamp_ns"],
+            )
+            assert result == v["expected_result"], f"negative case {name!r} failed"

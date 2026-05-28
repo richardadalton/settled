@@ -8,6 +8,7 @@ import {
   verifyConsistency,
   verifyInclusion,
   verifyTreeHead,
+  verifyTreeHeadSequential,
 } from '../src/verifier.js';
 import type { SignedTreeHead } from '../src/types.js';
 
@@ -173,6 +174,48 @@ describe('verifyTreeHead', () => {
   }
 });
 
+// ── Sequential STH verification ───────────────────────────────────────────────
+
+describe('verifyTreeHeadSequential', () => {
+  const vectors = loadJson('signed-tree-heads.json') as Array<{
+    description: string;
+    tree_size: number;
+    root_hash_hex: string;
+    timestamp_ns: number;
+    signature_hex: string;
+    public_key_hex: string;
+  }>;
+
+  for (let i = 0; i + 1 < vectors.length; i++) {
+    const prev = vectors[i];
+    const curr = vectors[i + 1];
+    it(`${curr.description} after ${prev.description}`, () => {
+      const sth: SignedTreeHead = {
+        treeSize: BigInt(curr.tree_size),
+        rootHash: hex(curr.root_hash_hex),
+        timestampNs: BigInt(curr.timestamp_ns),
+        signature: hex(curr.signature_hex),
+        publicKey: hex(curr.public_key_hex),
+        keyVersion: 1,
+      };
+      expect(verifyTreeHeadSequential(sth, BigInt(prev.timestamp_ns))).toBe(true);
+    });
+  }
+
+  it('equal timestamp fails', () => {
+    const v = vectors[0];
+    const sth: SignedTreeHead = {
+      treeSize: BigInt(v.tree_size),
+      rootHash: hex(v.root_hash_hex),
+      timestampNs: BigInt(v.timestamp_ns),
+      signature: hex(v.signature_hex),
+      publicKey: hex(v.public_key_hex),
+      keyVersion: 1,
+    };
+    expect(verifyTreeHeadSequential(sth, BigInt(v.timestamp_ns))).toBe(false);
+  });
+});
+
 // ── Negative cases ────────────────────────────────────────────────────────────
 
 describe('negative cases', () => {
@@ -188,6 +231,11 @@ describe('negative cases', () => {
       new_size?: number;
       old_root_hex?: string;
       new_root_hex?: string;
+      root_hash_hex?: string;
+      timestamp_ns?: number;
+      signature_hex?: string;
+      public_key_hex?: string;
+      previous_timestamp_ns?: number;
       expected_result: boolean;
     }
   >;
@@ -216,6 +264,20 @@ describe('negative cases', () => {
             hex(v.new_root_hex!),
           ),
         ).toBe(v.expected_result);
+      });
+    } else if (name.startsWith('tree_head_sequential_')) {
+      it(name, () => {
+        const sth: SignedTreeHead = {
+          treeSize: BigInt(v.tree_size!),
+          rootHash: hex(v.root_hash_hex!),
+          timestampNs: BigInt(v.timestamp_ns!),
+          signature: hex(v.signature_hex!),
+          publicKey: hex(v.public_key_hex!),
+          keyVersion: 1,
+        };
+        expect(verifyTreeHeadSequential(sth, BigInt(v.previous_timestamp_ns!))).toBe(
+          v.expected_result,
+        );
       });
     }
   }

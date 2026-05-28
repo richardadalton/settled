@@ -188,20 +188,66 @@ func TestVerifyTreeHead(t *testing.T) {
 	}
 }
 
+// ── Sequential STH verification ───────────────────────────────────────────────
+
+func TestVerifyTreeHeadSequential(t *testing.T) {
+	var vectors []struct {
+		Description  string `json:"description"`
+		TreeSize     uint64 `json:"tree_size"`
+		RootHashHex  string `json:"root_hash_hex"`
+		TimestampNs  int64  `json:"timestamp_ns"`
+		SignatureHex string `json:"signature_hex"`
+		PublicKeyHex string `json:"public_key_hex"`
+	}
+	json.Unmarshal(loadJSON("signed-tree-heads.json"), &vectors)
+
+	// Consecutive pairs must pass (timestamps are strictly increasing).
+	for i := 0; i+1 < len(vectors); i++ {
+		prev, curr := vectors[i], vectors[i+1]
+		name := fmt.Sprintf("%s after %s", curr.Description, prev.Description)
+		t.Run(name, func(t *testing.T) {
+			ok := verifier.VerifyTreeHeadSequential(
+				curr.TreeSize, b32(curr.RootHashHex), curr.TimestampNs,
+				h(curr.SignatureHex), h(curr.PublicKeyHex), prev.TimestampNs,
+			)
+			if !ok {
+				t.Fatal("expected true for sequential pair")
+			}
+		})
+	}
+
+	// Equal timestamp must fail.
+	v := vectors[0]
+	t.Run("equal timestamp fails", func(t *testing.T) {
+		ok := verifier.VerifyTreeHeadSequential(
+			v.TreeSize, b32(v.RootHashHex), v.TimestampNs,
+			h(v.SignatureHex), h(v.PublicKeyHex), v.TimestampNs,
+		)
+		if ok {
+			t.Fatal("expected false for equal timestamp")
+		}
+	})
+}
+
 // ── Negative cases ────────────────────────────────────────────────────────────
 
 func TestNegativeCases(t *testing.T) {
 	var cases map[string]struct {
-		LeafHashHex    string   `json:"leaf_hash_hex"`
-		LeafIndex      uint64   `json:"leaf_index"`
-		TreeSize       uint64   `json:"tree_size"`
-		ProofHex       []string `json:"proof_hex"`
-		RootHex        string   `json:"root_hex"`
-		OldSize        uint64   `json:"old_size"`
-		NewSize        uint64   `json:"new_size"`
-		OldRootHex     string   `json:"old_root_hex"`
-		NewRootHex     string   `json:"new_root_hex"`
-		ExpectedResult bool     `json:"expected_result"`
+		LeafHashHex         string   `json:"leaf_hash_hex"`
+		LeafIndex           uint64   `json:"leaf_index"`
+		TreeSize            uint64   `json:"tree_size"`
+		ProofHex            []string `json:"proof_hex"`
+		RootHex             string   `json:"root_hex"`
+		OldSize             uint64   `json:"old_size"`
+		NewSize             uint64   `json:"new_size"`
+		OldRootHex          string   `json:"old_root_hex"`
+		NewRootHex          string   `json:"new_root_hex"`
+		RootHashHex         string   `json:"root_hash_hex"`
+		TimestampNs         int64    `json:"timestamp_ns"`
+		SignatureHex        string   `json:"signature_hex"`
+		PublicKeyHex        string   `json:"public_key_hex"`
+		PreviousTimestampNs int64    `json:"previous_timestamp_ns"`
+		ExpectedResult      bool     `json:"expected_result"`
 	}
 	json.Unmarshal(loadJSON("negative-cases.json"), &cases)
 
@@ -217,6 +263,16 @@ func TestNegativeCases(t *testing.T) {
 		} else if len(name) > 12 && name[:12] == "consistency_" {
 			t.Run(name, func(t *testing.T) {
 				got := verifier.VerifyConsistency(v.OldSize, v.NewSize, proofs(v.ProofHex), b32(v.OldRootHex), b32(v.NewRootHex))
+				if got != v.ExpectedResult {
+					t.Fatalf("got %v, want %v", got, v.ExpectedResult)
+				}
+			})
+		} else if len(name) > 21 && name[:21] == "tree_head_sequential_" {
+			t.Run(name, func(t *testing.T) {
+				got := verifier.VerifyTreeHeadSequential(
+					v.TreeSize, b32(v.RootHashHex), v.TimestampNs,
+					h(v.SignatureHex), h(v.PublicKeyHex), v.PreviousTimestampNs,
+				)
 				if got != v.ExpectedResult {
 					t.Fatalf("got %v, want %v", got, v.ExpectedResult)
 				}

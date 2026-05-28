@@ -127,6 +127,26 @@ public static class Verifier
         }
     }
 
+    // ── Sequential verification ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Verify an STH and enforce strict timestamp monotonicity.
+    /// Returns false if timestampNs &lt;= previousTimestampNs or if the signature
+    /// is invalid. Use when processing a sequence of STHs to guard against
+    /// replayed or out-of-order tree heads.
+    /// </summary>
+    public static bool VerifyTreeHeadSequential(
+        ulong treeSize,
+        byte[] rootHash,
+        long timestampNs,
+        byte[] signature,
+        byte[] publicKey,
+        long previousTimestampNs)
+    {
+        if (timestampNs <= previousTimestampNs) return false;
+        return VerifyTreeHead(treeSize, rootHash, timestampNs, signature, publicKey);
+    }
+
     // ── Key chain ─────────────────────────────────────────────────────────────
 
     /// <summary>A key chain record returned by GET /api/keys.</summary>

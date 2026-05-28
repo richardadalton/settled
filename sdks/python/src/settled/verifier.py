@@ -133,6 +133,25 @@ class KeyRecord:
         self.activated_at_tree_size = activated_at_tree_size
 
 
+def verify_tree_head_sequential(
+    tree_size: int,
+    root_hash: bytes,
+    timestamp_ns: int,
+    signature: bytes,
+    public_key: bytes,
+    previous_timestamp_ns: int,
+) -> bool:
+    """Verify an STH and enforce strict timestamp monotonicity.
+
+    Returns False if timestamp_ns <= previous_timestamp_ns or if the signature
+    is invalid. Use when processing a sequence of STHs to guard against replayed
+    or out-of-order tree heads.
+    """
+    if timestamp_ns <= previous_timestamp_ns:
+        return False
+    return verify_tree_head(tree_size, root_hash, timestamp_ns, signature, public_key)
+
+
 def verify_tree_head_with_chain(
     tree_size: int,
     root_hash: bytes,

@@ -151,6 +151,20 @@ export function signingPayload(sth: SignedTreeHead): Uint8Array {
   return buf;
 }
 
+/**
+ * Verify an STH and enforce strict timestamp monotonicity.
+ * Returns false if sth.timestampNs <= previousTimestampNs or if the signature
+ * is invalid. Use when processing a sequence of STHs to guard against replayed
+ * or out-of-order tree heads.
+ */
+export function verifyTreeHeadSequential(
+  sth: SignedTreeHead,
+  previousTimestampNs: bigint,
+): boolean {
+  if (sth.timestampNs <= previousTimestampNs) return false;
+  return verifyTreeHead(sth);
+}
+
 // ── Key chain ─────────────────────────────────────────────────────────────────
 
 /** A key chain record returned by GET /api/keys. */

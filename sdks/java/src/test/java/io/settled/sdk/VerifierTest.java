@@ -154,6 +154,43 @@ class VerifierTest {
         return tests;
     }
 
+    // ── Sequential STH verification ───────────────────────────────────────────
+
+    @TestFactory
+    Collection<DynamicTest> sthSequentialVectors() {
+        JsonNode vectors = load("signed-tree-heads.json");
+        List<DynamicTest> tests = new ArrayList<>();
+        List<JsonNode> list = new ArrayList<>();
+        vectors.forEach(list::add);
+
+        // Consecutive pairs must pass (timestamps are strictly increasing).
+        for (int i = 0; i + 1 < list.size(); i++) {
+            JsonNode prev = list.get(i);
+            JsonNode curr = list.get(i + 1);
+            String name = curr.get("description").asText() + " after " + prev.get("description").asText();
+            long prevTs = prev.get("timestamp_ns").asLong();
+            long treeSize = curr.get("tree_size").asLong();
+            byte[] rootHash = h(curr.get("root_hash_hex").asText());
+            long timestampNs = curr.get("timestamp_ns").asLong();
+            byte[] sig = h(curr.get("signature_hex").asText());
+            byte[] pubKey = h(curr.get("public_key_hex").asText());
+            tests.add(DynamicTest.dynamicTest(name, () ->
+                    assertTrue(Verifier.verifyTreeHeadSequential(treeSize, rootHash, timestampNs, sig, pubKey, prevTs))));
+        }
+
+        // Equal timestamp must fail.
+        JsonNode v = list.get(0);
+        long ts = v.get("timestamp_ns").asLong();
+        long treeSize = v.get("tree_size").asLong();
+        byte[] rootHash = h(v.get("root_hash_hex").asText());
+        byte[] sig = h(v.get("signature_hex").asText());
+        byte[] pubKey = h(v.get("public_key_hex").asText());
+        tests.add(DynamicTest.dynamicTest("equal timestamp fails", () ->
+                assertFalse(Verifier.verifyTreeHeadSequential(treeSize, rootHash, ts, sig, pubKey, ts))));
+
+        return tests;
+    }
+
     // ── Negative cases ────────────────────────────────────────────────────────
 
     @TestFactory
@@ -180,6 +217,15 @@ class VerifierTest {
                 byte[] newRoot = h(v.get("new_root_hex").asText());
                 tests.add(DynamicTest.dynamicTest(name, () ->
                         assertEquals(expected, Verifier.verifyConsistency(oldSize, newSize, proof, oldRoot, newRoot))));
+            } else if (name.startsWith("tree_head_sequential_")) {
+                long treeSize = v.get("tree_size").asLong();
+                byte[] rootHash = h(v.get("root_hash_hex").asText());
+                long timestampNs = v.get("timestamp_ns").asLong();
+                byte[] sig = h(v.get("signature_hex").asText());
+                byte[] pubKey = h(v.get("public_key_hex").asText());
+                long prevTs = v.get("previous_timestamp_ns").asLong();
+                tests.add(DynamicTest.dynamicTest(name, () ->
+                        assertEquals(expected, Verifier.verifyTreeHeadSequential(treeSize, rootHash, timestampNs, sig, pubKey, prevTs))));
             }
         });
         return tests;

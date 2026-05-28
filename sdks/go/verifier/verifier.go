@@ -154,6 +154,17 @@ type KeyRecord struct {
 	ActivatedAtTreeSize   uint64
 }
 
+// VerifyTreeHeadSequential verifies an STH and enforces strict timestamp
+// monotonicity. Returns false if timestampNs <= previousTimestampNs or if the
+// signature is invalid. Use when processing a sequence of STHs to guard
+// against replayed or out-of-order tree heads.
+func VerifyTreeHeadSequential(treeSize uint64, rootHash [32]byte, timestampNs int64, signature, publicKey []byte, previousTimestampNs int64) bool {
+	if timestampNs <= previousTimestampNs {
+		return false
+	}
+	return VerifyTreeHead(treeSize, rootHash, timestampNs, signature, publicKey)
+}
+
 // VerifyTreeHeadWithChain verifies an STH against a key chain.
 // It finds the record whose Version matches keyVersion and verifies the
 // signature with that record's PublicKey.

@@ -68,5 +68,25 @@
       "b17003e0b3bbc81fe116edb140c39727254849cc4652b0f7c4f26f8b9d9f987d"
     ],
     "expected_result": false
+  },
+  "tree_head_sequential_equal_timestamp": {
+    "description": "STH timestamp equals previous \u2014 verify_tree_head_sequential must return false",
+    "tree_size": 4,
+    "root_hash_hex": "256b9e8825e5d370a4ae005d0901ea291977e2927f5cf8e3e72660dd09519edb",
+    "timestamp_ns": 2000000000,
+    "signature_hex": "b06ed4da2acc5480ebb5ba347e5b4294aee7ceb96b86e7a5f78bc392c0dc40b4936c95b575398001597bff38f09bc44b4de4c5c0ee4620a4bfed06ab48792f00",
+    "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    "previous_timestamp_ns": 2000000000,
+    "expected_result": false
+  },
+  "tree_head_sequential_regressed_timestamp": {
+    "description": "STH timestamp earlier than previous \u2014 verify_tree_head_sequential must return false",
+    "tree_size": 4,
+    "root_hash_hex": "256b9e8825e5d370a4ae005d0901ea291977e2927f5cf8e3e72660dd09519edb",
+    "timestamp_ns": 2000000000,
+    "signature_hex": "b06ed4da2acc5480ebb5ba347e5b4294aee7ceb96b86e7a5f78bc392c0dc40b4936c95b575398001597bff38f09bc44b4de4c5c0ee4620a4bfed06ab48792f00",
+    "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    "previous_timestamp_ns": 3000000000,
+    "expected_result": false
   }
 }
