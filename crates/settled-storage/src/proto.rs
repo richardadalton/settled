@@ -30,3 +30,13 @@ pub(crate) struct SignedTreeHeadProto {
     #[prost(uint32, tag = "6")]
     pub key_version: u32,
 }
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub(crate) struct KeyRecordProto {
+    #[prost(uint32, tag = "1")]
+    pub version: u32,
+    #[prost(bytes = "vec", tag = "2")]
+    pub public_key: Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub activated_at_tree_size: u64,
+}

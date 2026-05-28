@@ -73,6 +73,7 @@ async fn main() -> anyhow::Result<()> {
     Server::builder()
         .add_service(SettledLogServer::with_interceptor(
             SettledService::new(state),
+            #[allow(clippy::result_large_err)]
             move |req: tonic::Request<()>| {
                 if let Some(ref expected) = api_key {
                     let ok = req

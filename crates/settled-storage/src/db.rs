@@ -94,4 +94,8 @@ impl Db {
     pub fn head_store(&self) -> crate::head_store::HeadStore {
         crate::head_store::HeadStore(self.0.clone())
     }
+
+    pub fn key_store(&self) -> crate::key_store::KeyStore {
+        crate::key_store::KeyStore(self.0.clone())
+    }
 }

@@ -124,6 +124,34 @@ def signing_payload(tree_size: int, root_hash: bytes, timestamp_ns: int) -> byte
     return struct.pack(">Q", tree_size) + root_hash + struct.pack(">q", timestamp_ns)
 
 
+class KeyRecord:
+    """A key chain record returned by GET /api/keys."""
+
+    def __init__(self, version: int, public_key: bytes, activated_at_tree_size: int) -> None:
+        self.version = version
+        self.public_key = public_key
+        self.activated_at_tree_size = activated_at_tree_size
+
+
+def verify_tree_head_with_chain(
+    tree_size: int,
+    root_hash: bytes,
+    timestamp_ns: int,
+    signature: bytes,
+    key_version: int,
+    chain: list["KeyRecord"],
+) -> bool:
+    """Verify an STH against a key chain.
+
+    Finds the record whose version matches key_version and verifies the
+    signature with that record's public key.
+    """
+    record = next((r for r in chain if r.version == key_version), None)
+    if record is None:
+        return False
+    return verify_tree_head(tree_size, root_hash, timestamp_ns, signature, record.public_key)
+
+
 def verify_tree_head(
     tree_size: int,
     root_hash: bytes,

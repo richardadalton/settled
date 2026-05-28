@@ -142,6 +142,29 @@ pub fn signing_payload(tree_size: u64, root_hash: [u8; 32], timestamp_ns: i64) -
     buf
 }
 
+/// A key chain record returned by `GET /api/keys`.
+pub struct KeyRecord {
+    pub version: u32,
+    pub public_key: [u8; 32],
+    pub activated_at_tree_size: u64,
+}
+
+/// Verifies an STH against a key chain. Finds the record whose `version` matches
+/// `key_version` and verifies the signature with that record's public key.
+pub fn verify_tree_head_with_chain(
+    tree_size: u64,
+    root_hash: [u8; 32],
+    timestamp_ns: i64,
+    signature: &[u8],
+    key_version: u32,
+    chain: &[KeyRecord],
+) -> bool {
+    let Some(record) = chain.iter().find(|r| r.version == key_version) else {
+        return false;
+    };
+    verify_tree_head(tree_size, root_hash, timestamp_ns, signature, &record.public_key)
+}
+
 /// Verifies the Ed25519 signature on a Signed Tree Head.
 /// `public_key` must be 32 raw bytes; `signature` must be 64 raw bytes.
 pub fn verify_tree_head(

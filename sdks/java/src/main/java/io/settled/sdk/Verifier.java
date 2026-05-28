@@ -134,6 +134,41 @@ public final class Verifier {
         }
     }
 
+    // ── Key chain ─────────────────────────────────────────────────────────────
+
+    /** A key chain record returned by GET /api/keys. */
+    public static final class KeyRecord {
+        public final int version;
+        public final byte[] publicKey;
+        public final long activatedAtTreeSize;
+
+        public KeyRecord(int version, byte[] publicKey, long activatedAtTreeSize) {
+            this.version = version;
+            this.publicKey = publicKey;
+            this.activatedAtTreeSize = activatedAtTreeSize;
+        }
+    }
+
+    /**
+     * Verify an STH against a key chain.
+     * Finds the record whose version matches keyVersion and verifies the
+     * signature with that record's publicKey.
+     */
+    public static boolean verifyTreeHeadWithChain(
+            long treeSize,
+            byte[] rootHash,
+            long timestampNs,
+            byte[] signature,
+            int keyVersion,
+            List<KeyRecord> chain) {
+        for (KeyRecord r : chain) {
+            if (r.version == keyVersion) {
+                return verifyTreeHead(treeSize, rootHash, timestampNs, signature, r.publicKey);
+            }
+        }
+        return false;
+    }
+
     // ── Signed Tree Head ──────────────────────────────────────────────────────
 
     /**

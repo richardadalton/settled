@@ -147,6 +147,25 @@ func SigningPayload(treeSize uint64, rootHash [32]byte, timestampNs int64) [48]b
 	return buf
 }
 
+// KeyRecord is a key chain record returned by GET /api/keys.
+type KeyRecord struct {
+	Version               uint32
+	PublicKey             []byte
+	ActivatedAtTreeSize   uint64
+}
+
+// VerifyTreeHeadWithChain verifies an STH against a key chain.
+// It finds the record whose Version matches keyVersion and verifies the
+// signature with that record's PublicKey.
+func VerifyTreeHeadWithChain(treeSize uint64, rootHash [32]byte, timestampNs int64, signature []byte, keyVersion uint32, chain []KeyRecord) bool {
+	for _, r := range chain {
+		if r.Version == keyVersion {
+			return VerifyTreeHead(treeSize, rootHash, timestampNs, signature, r.PublicKey)
+		}
+	}
+	return false
+}
+
 // VerifyTreeHead verifies the Ed25519 signature on a Signed Tree Head.
 // publicKey must be the raw 32-byte Ed25519 public key.
 func VerifyTreeHead(treeSize uint64, rootHash [32]byte, timestampNs int64, signature, publicKey []byte) bool {

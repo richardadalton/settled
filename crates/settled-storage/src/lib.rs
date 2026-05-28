@@ -1,6 +1,7 @@
 pub mod db;
 pub mod error;
 pub mod head_store;
+pub mod key_store;
 pub mod log_store;
 pub mod tree_store;
 pub mod types;
@@ -11,6 +12,7 @@ mod proto;
 pub use db::Db;
 pub use error::{Error, Result};
 pub use head_store::HeadStore;
+pub use key_store::{KeyRecord, KeyStore};
 pub use log_store::LogStore;
 pub use tree_store::TreeStore;
 pub use types::{LogEntry, SignedTreeHead};

@@ -2,6 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use settled_storage::SignedTreeHead;
 
+use crate::signer::Signer;
 use crate::state::AppState;
 
 pub async fn run(state: AppState) {

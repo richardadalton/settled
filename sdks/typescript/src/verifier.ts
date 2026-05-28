@@ -151,6 +151,26 @@ export function signingPayload(sth: SignedTreeHead): Uint8Array {
   return buf;
 }
 
+// ── Key chain ─────────────────────────────────────────────────────────────────
+
+/** A key chain record returned by GET /api/keys. */
+export interface KeyRecord {
+  version: number;
+  publicKey: Uint8Array;
+  activatedAtTreeSize: bigint;
+}
+
+/**
+ * Verify an STH against a key chain.
+ * Finds the record whose version matches sth.keyVersion and verifies the
+ * signature with that record's publicKey.
+ */
+export function verifyTreeHeadWithChain(sth: SignedTreeHead, chain: KeyRecord[]): boolean {
+  const record = chain.find((r) => r.version === sth.keyVersion);
+  if (record === undefined) return false;
+  return verifyTreeHead({ ...sth, publicKey: record.publicKey });
+}
+
 /**
  * Verify the Ed25519 signature on a SignedTreeHead.
  * The public key must be the raw 32-byte Ed25519 public key from the STH.

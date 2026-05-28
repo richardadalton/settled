@@ -333,6 +333,89 @@ If the signing key is lost, a new key can be generated. Historical STHs remain v
 
 ---
 
+## Key Rotation
+
+The server maintains an append-only **key chain** — every signing key ever used is recorded in storage with its version number and the tree size at which it was activated. This lets verifiers authenticate STHs signed by any historical key without the server ever deleting old keys.
+
+### When to rotate
+
+- Scheduled key hygiene (e.g., annually)
+- Suspected key compromise
+- Personnel change
+
+### How to rotate
+
+Call the admin API:
+
+```sh
+curl -X POST http://localhost:8080/api/rotate-key
+```
+
+The server responds with the new key record:
+
+```json
+{
+  "version": 2,
+  "public_key": "a3f2...",
+  "activated_at_tree_size": 104857
+}
+```
+
+The hot-swap is instant — the server immediately begins signing new STHs with the new key. In-flight and historical STHs continue to verify against their respective key versions.
+
+### Viewing the full key chain
+
+```sh
+curl http://localhost:8080/api/keys
+```
+
+Returns all key records in version-ascending order:
+
+```json
+[
+  { "version": 1, "public_key": "...", "activated_at_tree_size": 0 },
+  { "version": 2, "public_key": "...", "activated_at_tree_size": 104857 }
+]
+```
+
+### SDK verification after rotation
+
+SDK verifiers expose a `verify_tree_head_with_chain` function. Pass the key chain fetched from `/api/keys` and the function will automatically select the correct public key for each STH's `key_version` field.
+
+```typescript
+// TypeScript example
+import { verifyTreeHeadWithChain } from '@daltonr/settled-sdk';
+
+const chain = await fetch('http://localhost:8080/api/keys').then(r => r.json());
+const keyChain = chain.map(r => ({
+  version: r.version,
+  publicKey: Buffer.from(r.public_key, 'hex'),
+  activatedAtTreeSize: BigInt(r.activated_at_tree_size),
+}));
+
+const ok = verifyTreeHeadWithChain(sth, keyChain);
+```
+
+```python
+# Python example
+from settled.verifier import KeyRecord, verify_tree_head_with_chain
+import requests
+
+data = requests.get('http://localhost:8080/api/keys').json()
+chain = [KeyRecord(r['version'], bytes.fromhex(r['public_key']), r['activated_at_tree_size']) for r in data]
+
+ok = verify_tree_head_with_chain(tree_size, root_hash, timestamp_ns, signature, key_version, chain)
+```
+
+### Post-rotation checklist
+
+1. Confirm the new version is returned by `GET /api/keys`.
+2. Verify a new STH has been produced with the new key version (wait up to `--sth-interval-secs`).
+3. Update any SDK clients that pin a specific public key to use `verify_tree_head_with_chain` instead.
+4. Back up the new `signing.key` file.
+
+---
+
 ## SDK Deployment
 
 The SDKs are client libraries — they are not deployed as services. They are included as dependencies in application code.

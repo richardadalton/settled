@@ -52,6 +52,7 @@ async fn boot() -> (SocketAddr, TempDir, SettledLogClient<Channel>) {
         // ephemeral port so it never collides.
         admin_listen: "127.0.0.1:0".parse().unwrap(),
         sth_interval_secs: 1,
+        api_key: None,
     };
 
     let state = AppState::build(config).await.expect("AppState::build");

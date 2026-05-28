@@ -127,6 +127,37 @@ public static class Verifier
         }
     }
 
+    // ── Key chain ─────────────────────────────────────────────────────────────
+
+    /// <summary>A key chain record returned by GET /api/keys.</summary>
+    public sealed class KeyRecord
+    {
+        public uint Version { get; init; }
+        public byte[] PublicKey { get; init; } = [];
+        public ulong ActivatedAtTreeSize { get; init; }
+    }
+
+    /// <summary>
+    /// Verify an STH against a key chain.
+    /// Finds the record whose Version matches keyVersion and verifies the
+    /// signature with that record's PublicKey.
+    /// </summary>
+    public static bool VerifyTreeHeadWithChain(
+        ulong treeSize,
+        byte[] rootHash,
+        long timestampNs,
+        byte[] signature,
+        uint keyVersion,
+        IReadOnlyList<KeyRecord> chain)
+    {
+        foreach (var r in chain)
+        {
+            if (r.Version == keyVersion)
+                return VerifyTreeHead(treeSize, rootHash, timestampNs, signature, r.PublicKey);
+        }
+        return false;
+    }
+
     // ── Signed Tree Head ──────────────────────────────────────────────────────
 
     /// <summary>
