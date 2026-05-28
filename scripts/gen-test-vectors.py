@@ -351,6 +351,30 @@ def gen_negative_vectors():
             "proof_hex": [h.hex() for h in cons_proof],
             "expected_result": False,
         },
+        # STH sequential-verification negative cases.
+        # Uses tree_size=4 data (deterministic: seed=0x00*32, entries entry-0..entry-3).
+        # The monotonicity guard fires before signature verification, so these return
+        # false regardless of signature validity.
+        "tree_head_sequential_equal_timestamp": {
+            "description": "STH timestamp equals previous — verify_tree_head_sequential must return false",
+            "tree_size": size,
+            "root_hash_hex": root.hex(),
+            "timestamp_ns": 2000000000,
+            "signature_hex": "b06ed4da2acc5480ebb5ba347e5b4294aee7ceb96b86e7a5f78bc392c0dc40b4936c95b575398001597bff38f09bc44b4de4c5c0ee4620a4bfed06ab48792f00",
+            "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+            "previous_timestamp_ns": 2000000000,
+            "expected_result": False,
+        },
+        "tree_head_sequential_regressed_timestamp": {
+            "description": "STH timestamp earlier than previous — verify_tree_head_sequential must return false",
+            "tree_size": size,
+            "root_hash_hex": root.hex(),
+            "timestamp_ns": 2000000000,
+            "signature_hex": "b06ed4da2acc5480ebb5ba347e5b4294aee7ceb96b86e7a5f78bc392c0dc40b4936c95b575398001597bff38f09bc44b4de4c5c0ee4620a4bfed06ab48792f00",
+            "public_key_hex": "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+            "previous_timestamp_ns": 3000000000,
+            "expected_result": False,
+        },
     }
 
 
@@ -412,15 +436,23 @@ def main():
     neg_data = files["negative-cases.json"]
     neg_errors = 0
     for name, v in neg_data.items():
-        p = [bytes.fromhex(h) for h in v["proof_hex"]]
-        if "leaf_index" in v:
+        if name.startswith("inclusion_"):
+            p = [bytes.fromhex(h) for h in v["proof_hex"]]
             result = verify_inclusion(bytes.fromhex(v["leaf_hash_hex"]),
                                       v["leaf_index"], v["tree_size"], p,
                                       bytes.fromhex(v["root_hex"]))
-        else:
+        elif name.startswith("consistency_"):
+            p = [bytes.fromhex(h) for h in v["proof_hex"]]
             result = verify_consistency(v["old_size"], v["new_size"], p,
                                         bytes.fromhex(v["old_root_hex"]),
                                         bytes.fromhex(v["new_root_hex"]))
+        elif name.startswith("tree_head_sequential_"):
+            # Verify the monotonicity invariant (crypto requires an external
+            # library not available here; the signature is tested by SDK tests).
+            result = v["timestamp_ns"] > v["previous_timestamp_ns"]
+        else:
+            print(f"  SKIP unknown negative case type: '{name}'")
+            continue
         if result != v["expected_result"]:
             print(f"  FAIL negative '{name}': got {result}, expected {v['expected_result']}")
             neg_errors += 1
