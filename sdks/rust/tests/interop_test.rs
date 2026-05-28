@@ -45,8 +45,7 @@ fn interop_verify() {
         Err(_) => return, // skip when not set
     };
 
-    let raw = std::fs::read(&path)
-        .unwrap_or_else(|e| panic!("cannot read {path}: {e}"));
+    let raw = std::fs::read(&path).unwrap_or_else(|e| panic!("cannot read {path}: {e}"));
     let d: InteropData = serde_json::from_slice(&raw).expect("parse interop data");
 
     assert!(

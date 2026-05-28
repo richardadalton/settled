@@ -26,7 +26,12 @@ use tonic::transport::Server;
 /// by a fresh `TempDir`. Returns the bound address, the temp dir guard
 /// (must be kept alive for the test's lifetime), a connected SDK client, and
 /// the STH-task shutdown sender (drop it to stop the task cleanly).
-async fn boot() -> (SocketAddr, TempDir, SettledClient, tokio::sync::watch::Sender<bool>) {
+async fn boot() -> (
+    SocketAddr,
+    TempDir,
+    SettledClient,
+    tokio::sync::watch::Sender<bool>,
+) {
     let tmp = TempDir::new().expect("tempdir");
     let data_dir = tmp.path().to_path_buf();
     let key_path = data_dir.join("signing.key");
@@ -163,7 +168,10 @@ async fn concurrent_appends_have_unique_gap_free_seqs() {
     }
     seqs.sort_unstable();
     let expected: Vec<u64> = (0..N).collect();
-    assert_eq!(seqs, expected, "every seq from 0..N must appear exactly once");
+    assert_eq!(
+        seqs, expected,
+        "every seq from 0..N must appear exactly once"
+    );
 }
 
 #[tokio::test]
@@ -215,19 +223,37 @@ async fn signed_tree_head_signature_verifies() {
     let sth = wait_for_sth(&mut client, 10).await;
 
     assert!(
-        verify_tree_head(sth.tree_size, b32(&sth.root_hash), sth.timestamp_ns, &sth.signature, &sth.public_key),
+        verify_tree_head(
+            sth.tree_size,
+            b32(&sth.root_hash),
+            sth.timestamp_ns,
+            &sth.signature,
+            &sth.public_key
+        ),
         "STH signature must verify with embedded public key",
     );
 
     assert!(
-        !verify_tree_head(sth.tree_size + 1, b32(&sth.root_hash), sth.timestamp_ns, &sth.signature, &sth.public_key),
+        !verify_tree_head(
+            sth.tree_size + 1,
+            b32(&sth.root_hash),
+            sth.timestamp_ns,
+            &sth.signature,
+            &sth.public_key
+        ),
         "tampered tree_size must fail verification",
     );
 
     let mut bad_root = b32(&sth.root_hash);
     bad_root[0] ^= 0x01;
     assert!(
-        !verify_tree_head(sth.tree_size, bad_root, sth.timestamp_ns, &sth.signature, &sth.public_key),
+        !verify_tree_head(
+            sth.tree_size,
+            bad_root,
+            sth.timestamp_ns,
+            &sth.signature,
+            &sth.public_key
+        ),
         "tampered root must fail verification",
     );
 }
@@ -240,10 +266,7 @@ async fn inclusion_proof_verifies_against_sdk() {
     let mut leaf_hashes: Vec<[u8; 32]> = Vec::with_capacity(n as usize);
     for i in 0..n {
         let data = format!("entry-{i}").into_bytes();
-        let res = client
-            .append(b"k".to_vec(), data)
-            .await
-            .expect("append");
+        let res = client.append(b"k".to_vec(), data).await.expect("append");
         leaf_hashes.push(b32(&res.leaf_hash));
     }
 

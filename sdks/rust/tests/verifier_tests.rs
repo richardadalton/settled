@@ -9,8 +9,7 @@ fn vectors_dir() -> PathBuf {
 }
 
 fn load_json(name: &str) -> Vec<u8> {
-    std::fs::read(vectors_dir().join(name))
-        .unwrap_or_else(|e| panic!("cannot read {name}: {e}"))
+    std::fs::read(vectors_dir().join(name)).unwrap_or_else(|e| panic!("cannot read {name}: {e}"))
 }
 
 fn h(s: &str) -> Vec<u8> {
@@ -66,7 +65,12 @@ fn test_node_hash() {
             let ab = node_hash(&left, &right);
             let ba = node_hash(&right, &left);
             assert_ne!(ab, ba, "{} must not be commutative", v.description);
-            assert_eq!(hex::encode(ba), expected_swapped, "{} swapped", v.description);
+            assert_eq!(
+                hex::encode(ba),
+                expected_swapped,
+                "{} swapped",
+                v.description
+            );
         }
     }
 }
@@ -108,7 +112,8 @@ fn test_verify_consistency() {
         new_root_hex: String,
         proof_hex: Vec<String>,
     }
-    let vectors: Vec<Vector> = serde_json::from_slice(&load_json("consistency-proofs.json")).unwrap();
+    let vectors: Vec<Vector> =
+        serde_json::from_slice(&load_json("consistency-proofs.json")).unwrap();
     for v in vectors {
         let ok = verify_consistency(
             v.old_size,
@@ -134,16 +139,29 @@ fn test_verify_tree_head() {
         signature_hex: String,
         public_key_hex: String,
     }
-    let vectors: Vec<Vector> = serde_json::from_slice(&load_json("signed-tree-heads.json")).unwrap();
+    let vectors: Vec<Vector> =
+        serde_json::from_slice(&load_json("signed-tree-heads.json")).unwrap();
     for v in vectors {
         assert!(
-            verify_tree_head(v.tree_size, b32(&v.root_hash_hex), v.timestamp_ns, &h(&v.signature_hex), &h(&v.public_key_hex)),
+            verify_tree_head(
+                v.tree_size,
+                b32(&v.root_hash_hex),
+                v.timestamp_ns,
+                &h(&v.signature_hex),
+                &h(&v.public_key_hex)
+            ),
             "{}",
             v.description,
         );
 
         assert!(
-            !verify_tree_head(v.tree_size + 1, b32(&v.root_hash_hex), v.timestamp_ns, &h(&v.signature_hex), &h(&v.public_key_hex)),
+            !verify_tree_head(
+                v.tree_size + 1,
+                b32(&v.root_hash_hex),
+                v.timestamp_ns,
+                &h(&v.signature_hex),
+                &h(&v.public_key_hex)
+            ),
             "{} tampered tree_size should fail",
             v.description,
         );
@@ -151,7 +169,13 @@ fn test_verify_tree_head() {
         let mut root = b32(&v.root_hash_hex);
         root[0] ^= 0xFF;
         assert!(
-            !verify_tree_head(v.tree_size, root, v.timestamp_ns, &h(&v.signature_hex), &h(&v.public_key_hex)),
+            !verify_tree_head(
+                v.tree_size,
+                root,
+                v.timestamp_ns,
+                &h(&v.signature_hex),
+                &h(&v.public_key_hex)
+            ),
             "{} tampered root should fail",
             v.description,
         );

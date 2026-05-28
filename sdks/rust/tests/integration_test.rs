@@ -24,7 +24,10 @@ fn repo_root() -> PathBuf {
 
 fn find_server() -> Option<PathBuf> {
     let root = repo_root();
-    for rel in &["target/release/settled-server", "target/debug/settled-server"] {
+    for rel in &[
+        "target/release/settled-server",
+        "target/debug/settled-server",
+    ] {
         let p = root.join(rel);
         if p.exists() {
             return Some(p);
@@ -108,7 +111,10 @@ async fn wait_for_sth(c: &mut SettledClient, min_size: u64) -> SignedTreeHead {
                 return sth;
             }
         }
-        assert!(Instant::now() < deadline, "no STH covering {min_size} entries within 5s");
+        assert!(
+            Instant::now() < deadline,
+            "no STH covering {min_size} entries within 5s"
+        );
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
@@ -131,7 +137,10 @@ async fn test_append_get_roundtrip() {
     let mut c = SettledClient::connect(addr).await.unwrap();
 
     for i in 0u64..20 {
-        let res = c.append(b"k".to_vec(), format!("d-{i}").into_bytes()).await.unwrap();
+        let res = c
+            .append(b"k".to_vec(), format!("d-{i}").into_bytes())
+            .await
+            .unwrap();
         assert_eq!(res.seq, i, "unexpected seq for entry {i}");
     }
     for i in 0u64..20 {
@@ -148,7 +157,9 @@ async fn test_get_latest_newest_first() {
     let mut c = SettledClient::connect(addr).await.unwrap();
 
     for i in 0..10 {
-        c.append(b"k".to_vec(), format!("x-{i}").into_bytes()).await.unwrap();
+        c.append(b"k".to_vec(), format!("x-{i}").into_bytes())
+            .await
+            .unwrap();
     }
 
     let got = c.get_latest(5).await.unwrap();
@@ -171,19 +182,33 @@ async fn test_sth_verifies() {
     let mut c = SettledClient::connect(addr).await.unwrap();
 
     for i in 0..5 {
-        c.append(b"k".to_vec(), format!("d-{i}").into_bytes()).await.unwrap();
+        c.append(b"k".to_vec(), format!("d-{i}").into_bytes())
+            .await
+            .unwrap();
     }
     let sth = wait_for_sth(&mut c, 5).await;
 
     assert!(
-        verify_tree_head(sth.tree_size, to32(&sth.root_hash), sth.timestamp_ns, &sth.signature, &sth.public_key),
+        verify_tree_head(
+            sth.tree_size,
+            to32(&sth.root_hash),
+            sth.timestamp_ns,
+            &sth.signature,
+            &sth.public_key
+        ),
         "STH signature must verify",
     );
 
     let mut tampered = sth.root_hash.clone();
     tampered[0] ^= 1;
     assert!(
-        !verify_tree_head(sth.tree_size, to32(&tampered), sth.timestamp_ns, &sth.signature, &sth.public_key),
+        !verify_tree_head(
+            sth.tree_size,
+            to32(&tampered),
+            sth.timestamp_ns,
+            &sth.signature,
+            &sth.public_key
+        ),
         "tampered root must fail",
     );
 }
@@ -198,7 +223,10 @@ async fn test_inclusion_proof_verifies() {
     const N: u64 = 15;
     let mut leaves: Vec<[u8; 32]> = Vec::new();
     for i in 0..N {
-        let res = c.append(b"k".to_vec(), format!("e-{i}").into_bytes()).await.unwrap();
+        let res = c
+            .append(b"k".to_vec(), format!("e-{i}").into_bytes())
+            .await
+            .unwrap();
         leaves.push(to32(&res.leaf_hash));
     }
 
@@ -208,7 +236,13 @@ async fn test_inclusion_proof_verifies() {
     for i in 0..N {
         let ip = c.inclusion_proof(i, sth.tree_size).await.unwrap();
         assert!(
-            verify_inclusion(leaves[i as usize], i, sth.tree_size, &proof32(&ip.proof), root),
+            verify_inclusion(
+                leaves[i as usize],
+                i,
+                sth.tree_size,
+                &proof32(&ip.proof),
+                root
+            ),
             "inclusion proof for seq {i} must verify",
         );
     }
@@ -222,16 +256,23 @@ async fn test_consistency_proof_verifies() {
     let mut c = SettledClient::connect(addr).await.unwrap();
 
     for i in 0..10 {
-        c.append(b"k".to_vec(), format!("a-{i}").into_bytes()).await.unwrap();
+        c.append(b"k".to_vec(), format!("a-{i}").into_bytes())
+            .await
+            .unwrap();
     }
     let sth_old = wait_for_sth(&mut c, 10).await;
 
     for i in 10..25 {
-        c.append(b"k".to_vec(), format!("b-{i}").into_bytes()).await.unwrap();
+        c.append(b"k".to_vec(), format!("b-{i}").into_bytes())
+            .await
+            .unwrap();
     }
     let sth_new = wait_for_sth(&mut c, 25).await;
 
-    let cp = c.consistency_proof(sth_old.tree_size, sth_new.tree_size).await.unwrap();
+    let cp = c
+        .consistency_proof(sth_old.tree_size, sth_new.tree_size)
+        .await
+        .unwrap();
     assert!(
         verify_consistency(
             sth_old.tree_size,

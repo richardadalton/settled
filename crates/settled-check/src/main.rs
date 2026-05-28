@@ -61,7 +61,13 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
         .try_into()
         .context("root_hash must be 32 bytes")?;
 
-    if !verify_tree_head(sth.tree_size, root, sth.timestamp_ns, &sth.signature, &sth.public_key) {
+    if !verify_tree_head(
+        sth.tree_size,
+        root,
+        sth.timestamp_ns,
+        &sth.signature,
+        &sth.public_key,
+    ) {
         anyhow::bail!("STH signature verification FAILED");
     }
     println!("  signature  : OK");
@@ -82,10 +88,7 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let entry = client
-            .get(seq_num)
-            .await
-            .context("Failed to fetch entry")?;
+        let entry = client.get(seq_num).await.context("Failed to fetch entry")?;
 
         let leaf: [u8; 32] = entry
             .leaf_hash

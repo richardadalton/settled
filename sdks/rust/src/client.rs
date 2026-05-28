@@ -111,7 +111,10 @@ impl SettledClient {
         let auth_header = api_key.map(|k| {
             MetadataValue::try_from(format!("Bearer {k}")).expect("api key must be valid ASCII")
         });
-        Ok(Self { inner: SettledLogClient::new(channel), auth_header })
+        Ok(Self {
+            inner: SettledLogClient::new(channel),
+            auth_header,
+        })
     }
 
     fn make_request<T>(&self, body: T) -> Request<T> {
@@ -123,33 +126,65 @@ impl SettledClient {
     }
 
     /// Append an entry and return its sequence number, timestamp, and leaf hash.
-    pub async fn append(&mut self, key: Vec<u8>, data: Vec<u8>) -> Result<AppendResult, ClientError> {
-        let r = self.inner.append(self.make_request(proto::AppendRequest { key, data })).await?.into_inner();
-        Ok(AppendResult { seq: r.seq, timestamp_ns: r.timestamp_ns, leaf_hash: r.leaf_hash })
+    pub async fn append(
+        &mut self,
+        key: Vec<u8>,
+        data: Vec<u8>,
+    ) -> Result<AppendResult, ClientError> {
+        let r = self
+            .inner
+            .append(self.make_request(proto::AppendRequest { key, data }))
+            .await?
+            .into_inner();
+        Ok(AppendResult {
+            seq: r.seq,
+            timestamp_ns: r.timestamp_ns,
+            leaf_hash: r.leaf_hash,
+        })
     }
 
     /// Retrieve a log entry by sequence number.
     pub async fn get(&mut self, seq: u64) -> Result<Entry, ClientError> {
-        let r = self.inner.get(self.make_request(proto::GetRequest { seq })).await?.into_inner();
+        let r = self
+            .inner
+            .get(self.make_request(proto::GetRequest { seq }))
+            .await?
+            .into_inner();
         Ok(from_pb_entry(r.entry.unwrap_or_default()))
     }
 
     /// Retrieve the most-recent `n` entries (newest first). `n=0` is treated as 1.
     /// Values above the server cap are silently clamped.
     pub async fn get_latest(&mut self, n: u32) -> Result<Vec<Entry>, ClientError> {
-        let r = self.inner.get_latest(self.make_request(proto::GetLatestRequest { n })).await?.into_inner();
+        let r = self
+            .inner
+            .get_latest(self.make_request(proto::GetLatestRequest { n }))
+            .await?
+            .into_inner();
         Ok(r.entries.into_iter().map(from_pb_entry).collect())
     }
 
     /// Retrieve a Signed Tree Head. Pass `tree_size=0` for the latest.
     pub async fn get_sth(&mut self, tree_size: u64) -> Result<SignedTreeHead, ClientError> {
-        let r = self.inner.get_sth(self.make_request(proto::GetSthRequest { tree_size })).await?.into_inner();
+        let r = self
+            .inner
+            .get_sth(self.make_request(proto::GetSthRequest { tree_size }))
+            .await?
+            .into_inner();
         Ok(from_pb_sth(r.sth.unwrap_or_default()))
     }
 
     /// Return an inclusion proof for `seq` against `tree_size`. Pass `tree_size=0` for the latest STH.
-    pub async fn inclusion_proof(&mut self, seq: u64, tree_size: u64) -> Result<InclusionProofResult, ClientError> {
-        let r = self.inner.inclusion_proof(self.make_request(proto::InclusionProofRequest { seq, tree_size })).await?.into_inner();
+    pub async fn inclusion_proof(
+        &mut self,
+        seq: u64,
+        tree_size: u64,
+    ) -> Result<InclusionProofResult, ClientError> {
+        let r = self
+            .inner
+            .inclusion_proof(self.make_request(proto::InclusionProofRequest { seq, tree_size }))
+            .await?
+            .into_inner();
         Ok(InclusionProofResult {
             leaf_index: r.leaf_index,
             tree_size: r.tree_size,
@@ -159,8 +194,18 @@ impl SettledClient {
     }
 
     /// Return a consistency proof between `old_size` and `new_size`. Pass `new_size=0` for the latest STH.
-    pub async fn consistency_proof(&mut self, old_size: u64, new_size: u64) -> Result<ConsistencyProofResult, ClientError> {
-        let r = self.inner.consistency_proof(self.make_request(proto::ConsistencyProofRequest { old_size, new_size })).await?.into_inner();
+    pub async fn consistency_proof(
+        &mut self,
+        old_size: u64,
+        new_size: u64,
+    ) -> Result<ConsistencyProofResult, ClientError> {
+        let r = self
+            .inner
+            .consistency_proof(
+                self.make_request(proto::ConsistencyProofRequest { old_size, new_size }),
+            )
+            .await?
+            .into_inner();
         Ok(ConsistencyProofResult {
             old_size: r.old_size,
             new_size: r.new_size,

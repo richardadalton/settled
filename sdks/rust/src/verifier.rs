@@ -162,7 +162,13 @@ pub fn verify_tree_head_with_chain(
     let Some(record) = chain.iter().find(|r| r.version == key_version) else {
         return false;
     };
-    verify_tree_head(tree_size, root_hash, timestamp_ns, signature, &record.public_key)
+    verify_tree_head(
+        tree_size,
+        root_hash,
+        timestamp_ns,
+        signature,
+        &record.public_key,
+    )
 }
 
 /// Verifies an STH and enforces that its timestamp is strictly later than
