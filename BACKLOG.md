@@ -7,27 +7,10 @@ Items within each tier are ordered by priority.
 
 ## Critical
 
-### CI/CD — zero automation exists
-No `.github/` directory. No automated test runs, release pipelines, or status badges. For a project with 6 language SDKs and cryptographic correctness requirements this is the highest-risk gap.
-- Add GitHub Actions workflow: Rust `cargo test` + clippy + fmt check
-- Add per-SDK workflow: TS vitest, Python pytest, Go test, Java gradle test, .NET dotnet test
-- Add a cross-language test-vector validation step that rebuilds vectors and diffs them
+### CI/CD — remaining gaps
+Core CI is in place (Rust, all 6 SDKs, test-vector drift check, cross-SDK interop). Two items remain:
 - Add Docker image build + push to GHCR on tag
 - Add fuzz targets as a scheduled nightly job
-
-### Authentication / authorization on gRPC
-The server accepts writes from anyone who can reach port 50051. No token, no mTLS, no API key. Every SDK example appends without credentials.
-- Design: decide between API key header, mTLS client certs, or JWT
-- Server: enforce auth middleware in the tonic interceptor layer
-- SDKs: thread auth credential through `SettledClient` constructor
-- Docs: update deployment guide with auth configuration
-
-### Key rotation is undocumented and partially broken
-`key_version` exists in the STH proto and `KeyRecord` in RocksDB but there is no implemented rotation flow. If the signing key is compromised or expires, existing proofs become unverifiable without a certificate chain.
-- Implement `rotate-key` admin endpoint that writes a new `KeyRecord` with activation tree size
-- Server: serve the full key chain on STH verification requests
-- SDK verifiers: walk the key chain when `key_version > 1`
-- Docs: write a key rotation runbook
 
 ---
 
@@ -85,12 +68,11 @@ One subcommand (`verify`) checks a live STH. No batch verification, no consisten
 - Add `settled-check export --server ... --from 0 --to 1000 --output entries.json`
 - Add `settled-check inspect-sth --file ./sth.json` (offline STH signature verification, no server needed)
 
-### Admin API has almost nothing
-`/health` and `/metrics` only. You cannot inspect or change server state without a gRPC client.
+### Admin API has remaining gaps
+`GET /api/keys` and `POST /api/rotate-key` are implemented. Still missing:
 - Add `GET /api/sth` — current signed tree head as JSON
 - Add `GET /api/stats` — entry count, tree size, last STH timestamp
 - Add `POST /api/sth/force` — trigger an immediate STH signing cycle
-- Add `GET /api/keys` — list key versions for rotation audit
 
 ### Package name inconsistency — TypeScript SDK
 The npm package is `@daltonr/settled-sdk` (a personal scope). This looks wrong to users and becomes a problem if the project is handed off.
@@ -119,20 +101,6 @@ The admin `/metrics` endpoint exists but what is exported is undocumented and li
 
 ## Documentation
 
-### README is outdated
-The "Crate structure" section lists `gen-sth-vectors` as a top-level crate and omits `settled-server`, `settled-client`, `settled-check`, and all 6 SDKs. The docs links include `implementation-plan.md` (a planning artifact).
-- Rewrite the crate/SDK structure section to reflect reality
-- Remove or verify the `docs/implementation-plan.md` link
-- Add a "SDK quick-start" section with 5-line snippets for each language
-- Add an "Architecture overview" section with a 1-paragraph summary
-
-### Missing SDK READMEs
-Go, Java, and Rust SDKs have no README. Python and .NET have them; TypeScript has a description only.
-- Write `sdks/go/README.md`
-- Write `sdks/java/README.md`
-- Write `sdks/rust/README.md`
-- Each README should cover: install, quick-start, verification example, link to main docs
-
 ### No CHANGELOG
 No version history anywhere. When SDKs are published users cannot see what changed between releases.
 - Add root `CHANGELOG.md`
@@ -143,9 +111,10 @@ No version history anywhere. When SDKs are published users cannot see what chang
 The README says pull requests are not accepted but says nothing about reporting security vulnerabilities — critical given this is a cryptographic audit log.
 - Add `SECURITY.md` with a contact address and responsible disclosure timeline
 
-### Deployment docs need an operational runbook
-`docs/deployment.md` exists but does not cover key backup verification, disaster recovery, graceful shutdown, or rolling restart.
-- Add "Day 2 Operations" section covering: backup procedure, restore procedure, key rotation, graceful shutdown
+### Deployment docs need Day 2 Operations section
+`docs/deployment.md` has a key rotation runbook. Still missing:
+- Add backup procedure and restore procedure
+- Add graceful shutdown and rolling restart guidance
 
 ---
 
@@ -154,17 +123,7 @@ The README says pull requests are not accepted but says nothing about reporting 
 ### SDK integration tests require a running server and skip silently
 The Go and Rust SDK integration tests are conditional on a binary being present with no CI path to run them.
 - Add a `make test-integration` target that builds `settled-server` and runs all SDK tests against it
-- Wire this into the CI workflow (connect to CI item above)
-
-### No cross-SDK interoperability test
-Each SDK tests against a live server independently, but there is no test that crosses SDKs — e.g. Python appends, TypeScript verifies. Subtle serialization differences would not be caught.
-- Add a cross-language test script: one language appends entries, another reads and verifies inclusion proofs
-- Include in CI as a smoke test
-
-### STH timestamp monotonicity not verified by client SDKs
-Verifiers in each SDK check the Ed25519 signature but do not check that the timestamp is later than the previously seen STH. A replayed old STH passes signature verification.
-- Add `verifyTreeHead(sth, previousSth?)` overload that also enforces `timestamp_ns` monotonicity
-- Add test vectors for timestamp regression cases to `negative-cases.json`
+- Wire this into the CI workflow
 
 ### No fuzzing in SDKs
 Only `settled-core` (Rust) has fuzz targets. The TypeScript and Python verifiers have no fuzzing.
