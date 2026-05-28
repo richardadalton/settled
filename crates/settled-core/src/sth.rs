@@ -38,10 +38,7 @@ mod tests {
     use std::fs;
 
     fn load_vectors(name: &str) -> serde_json::Value {
-        let path = format!(
-            "{}/../../test-vectors/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        );
+        let path = format!("{}/../../test-vectors/{name}", env!("CARGO_MANIFEST_DIR"));
         let data = fs::read_to_string(&path).unwrap_or_else(|_| panic!("cannot read {path}"));
         serde_json::from_str(&data).expect("invalid JSON")
     }
@@ -51,13 +48,19 @@ mod tests {
         let vectors = load_vectors("signed-tree-heads.json");
         for v in vectors.as_array().unwrap() {
             let seed: [u8; 32] = hex::decode(v["private_key_seed_hex"].as_str().unwrap())
-                .unwrap().try_into().unwrap();
+                .unwrap()
+                .try_into()
+                .unwrap();
             let root: [u8; 32] = hex::decode(v["root_hash_hex"].as_str().unwrap())
-                .unwrap().try_into().unwrap();
+                .unwrap()
+                .try_into()
+                .unwrap();
             let tree_size = v["tree_size"].as_u64().unwrap();
             let timestamp_ns = v["timestamp_ns"].as_i64().unwrap();
             let expected_sig: [u8; 64] = hex::decode(v["signature_hex"].as_str().unwrap())
-                .unwrap().try_into().unwrap();
+                .unwrap()
+                .try_into()
+                .unwrap();
 
             let signing_key = SigningKey::from_bytes(&seed);
             let sig = sign_tree_head(&signing_key, tree_size, &root, timestamp_ns);
@@ -104,8 +107,20 @@ mod tests {
         let sig = sign_tree_head(&key_a, 100, &root, 999_999_999);
 
         // Valid with key A
-        assert!(verify_tree_head(&key_a.verifying_key(), 100, &root, 999_999_999, &sig));
+        assert!(verify_tree_head(
+            &key_a.verifying_key(),
+            100,
+            &root,
+            999_999_999,
+            &sig
+        ));
         // Invalid with key B
-        assert!(!verify_tree_head(&key_b.verifying_key(), 100, &root, 999_999_999, &sig));
+        assert!(!verify_tree_head(
+            &key_b.verifying_key(),
+            100,
+            &root,
+            999_999_999,
+            &sig
+        ));
     }
 }

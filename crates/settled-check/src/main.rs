@@ -72,8 +72,8 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
         .as_slice()
         .try_into()
         .context("signature must be 64 bytes")?;
-    let verifying_key = VerifyingKey::from_bytes(&pub_key_arr)
-        .context("Invalid Ed25519 public key")?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&pub_key_arr).context("Invalid Ed25519 public key")?;
     let signature = Signature::from_bytes(&sig_arr);
 
     if !settled_client::verify_tree_head(
@@ -106,10 +106,7 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
 
         // The leaf hash for a log entry is SHA-256(0x00 || data).
         // We don't have the raw data here; instead we re-fetch the entry.
-        let entry_resp = client
-            .get(seq_num)
-            .await
-            .context("Failed to fetch entry")?;
+        let entry_resp = client.get(seq_num).await.context("Failed to fetch entry")?;
 
         let entry = entry_resp.entry.context("Server returned no entry")?;
         let leaf: [u8; 32] = entry
@@ -125,7 +122,10 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
             &proof_hashes,
             &root_arr,
         ) {
-            println!("  inclusion  : OK (seq={seq_num}, leaf_index={})", proof_resp.leaf_index);
+            println!(
+                "  inclusion  : OK (seq={seq_num}, leaf_index={})",
+                proof_resp.leaf_index
+            );
         } else {
             anyhow::bail!("Inclusion proof verification FAILED for seq={seq_num}");
         }

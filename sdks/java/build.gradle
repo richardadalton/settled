@@ -58,6 +58,7 @@ protobuf {
 
 test {
     useJUnitPlatform()
+    systemProperty 'vectors.dir', file('../../test-vectors').absolutePath
 }
 
 signing {

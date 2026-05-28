@@ -24,7 +24,10 @@ fn k(n: usize) -> usize {
 
 /// RFC 6962 PATH(m, D[n]).
 /// Returns the sibling hashes from leaf to root for leaf at index `m`.
-pub fn inclusion_proof(leaf_hashes: &[[u8; 32]], leaf_index: usize) -> Result<Vec<[u8; 32]>, ProofError> {
+pub fn inclusion_proof(
+    leaf_hashes: &[[u8; 32]],
+    leaf_index: usize,
+) -> Result<Vec<[u8; 32]>, ProofError> {
     let n = leaf_hashes.len();
     if leaf_index >= n {
         return Err(ProofError::LeafIndexOutOfRange(leaf_index as u64, n as u64));
@@ -147,7 +150,13 @@ pub fn verify_consistency(
 
     let mut iter = proof.iter();
 
-    match verify_subproof(old_size as usize, new_size as usize, old_root, &mut iter, true) {
+    match verify_subproof(
+        old_size as usize,
+        new_size as usize,
+        old_root,
+        &mut iter,
+        true,
+    ) {
         Some((computed_old, computed_new)) => {
             iter.next().is_none()  // proof fully consumed
                 && &computed_old == old_root
@@ -200,10 +209,7 @@ mod tests {
     use std::fs;
 
     fn load_vectors(name: &str) -> serde_json::Value {
-        let path = format!(
-            "{}/../../test-vectors/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        );
+        let path = format!("{}/../../test-vectors/{name}", env!("CARGO_MANIFEST_DIR"));
         let data = fs::read_to_string(&path).unwrap_or_else(|_| panic!("cannot read {path}"));
         serde_json::from_str(&data).expect("invalid JSON")
     }
@@ -213,7 +219,9 @@ mod tests {
     }
 
     fn standard_leaf_hashes() -> Vec<[u8; 32]> {
-        (0..8).map(|i| leaf_hash(format!("entry-{i}").as_bytes())).collect()
+        (0..8)
+            .map(|i| leaf_hash(format!("entry-{i}").as_bytes()))
+            .collect()
     }
 
     // -----------------------------------------------------------------------
@@ -230,7 +238,8 @@ mod tests {
             let leaf_index = v["leaf_index"].as_u64().unwrap() as usize;
             let expected_root = decode32(v["root_hex"].as_str().unwrap());
             let expected_proof: Vec<[u8; 32]> = v["proof_hex"]
-                .as_array().unwrap()
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|h| decode32(h.as_str().unwrap()))
                 .collect();
@@ -241,9 +250,17 @@ mod tests {
                 "inclusion_proof mismatch: size={tree_size} idx={leaf_index}"
             );
 
-            let valid = verify_inclusion(&lh[leaf_index], leaf_index as u64,
-                                        tree_size as u64, &got, &expected_root);
-            assert!(valid, "verify_inclusion failed: size={tree_size} idx={leaf_index}");
+            let valid = verify_inclusion(
+                &lh[leaf_index],
+                leaf_index as u64,
+                tree_size as u64,
+                &got,
+                &expected_root,
+            );
+            assert!(
+                valid,
+                "verify_inclusion failed: size={tree_size} idx={leaf_index}"
+            );
         }
     }
 
@@ -260,7 +277,8 @@ mod tests {
             let leaf_index = v["leaf_index"].as_u64().unwrap();
             let tree_size = v["tree_size"].as_u64().unwrap();
             let proof: Vec<[u8; 32]> = v["proof_hex"]
-                .as_array().unwrap()
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|h| decode32(h.as_str().unwrap()))
                 .collect();
@@ -286,7 +304,8 @@ mod tests {
             let old_root = decode32(v["old_root_hex"].as_str().unwrap());
             let new_root = decode32(v["new_root_hex"].as_str().unwrap());
             let expected_proof: Vec<[u8; 32]> = v["proof_hex"]
-                .as_array().unwrap()
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|h| decode32(h.as_str().unwrap()))
                 .collect();
@@ -297,10 +316,12 @@ mod tests {
                 "consistency_proof mismatch: old={old_size} new={new_size}"
             );
 
-            let valid = verify_consistency(
-                old_size as u64, new_size as u64, &got, &old_root, &new_root,
+            let valid =
+                verify_consistency(old_size as u64, new_size as u64, &got, &old_root, &new_root);
+            assert!(
+                valid,
+                "verify_consistency failed: old={old_size} new={new_size}"
             );
-            assert!(valid, "verify_consistency failed: old={old_size} new={new_size}");
         }
     }
 
@@ -316,7 +337,8 @@ mod tests {
             let old_size = v["old_size"].as_u64().unwrap();
             let new_size = v["new_size"].as_u64().unwrap();
             let proof: Vec<[u8; 32]> = v["proof_hex"]
-                .as_array().unwrap()
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|h| decode32(h.as_str().unwrap()))
                 .collect();
@@ -416,7 +438,13 @@ mod tests {
         long_proof.push([0u8; 32]);
         assert!(!verify_consistency(4, 8, &long_proof, &old_root, &new_root));
         // proof too short (missing element)
-        assert!(!verify_consistency(4, 8, &proof[..proof.len()-1], &old_root, &new_root));
+        assert!(!verify_consistency(
+            4,
+            8,
+            &proof[..proof.len() - 1],
+            &old_root,
+            &new_root
+        ));
         // empty proof for non-equal sizes
         assert!(!verify_consistency(4, 8, &[], &old_root, &new_root));
     }

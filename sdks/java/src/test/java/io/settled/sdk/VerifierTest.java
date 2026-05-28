@@ -19,10 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class VerifierTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Path VECTORS = Paths.get(
-            VerifierTest.class.getResource("/").getPath()
-    ).resolve("../../../../../..").normalize()
-            .resolve("../../test-vectors");
+    private static final Path VECTORS = Paths.get(System.getProperty("vectors.dir"));
 
     private static JsonNode load(String name) {
         try {

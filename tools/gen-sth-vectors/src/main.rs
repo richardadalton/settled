@@ -6,13 +6,13 @@
 
 use ed25519_dalek::SigningKey;
 use serde_json::{json, Value};
-use std::fs;
-use std::path::PathBuf;
 use settled_core::{
     hash::leaf_hash,
     merkle::mth,
     sth::{sign_tree_head, signing_payload},
 };
+use std::fs;
+use std::path::PathBuf;
 
 fn main() {
     let seed = [0u8; 32];
@@ -50,8 +50,8 @@ fn main() {
         })
         .collect();
 
-    let out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test-vectors/signed-tree-heads.json");
+    let out_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test-vectors/signed-tree-heads.json");
 
     let json_str = serde_json::to_string_pretty(&vectors).unwrap() + "\n";
     fs::write(&out_path, &json_str)

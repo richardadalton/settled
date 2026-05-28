@@ -20,7 +20,10 @@ impl LocalSigner {
             let arr: [u8; 32] = bytes
                 .try_into()
                 .map_err(|_| anyhow::anyhow!("signing key file must be exactly 32 bytes"))?;
-            Ok(Self { key: SigningKey::from_bytes(&arr), version: 1 })
+            Ok(Self {
+                key: SigningKey::from_bytes(&arr),
+                version: 1,
+            })
         } else {
             let key = SigningKey::generate(&mut OsRng);
             std::fs::write(path, key.to_bytes())?;

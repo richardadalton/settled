@@ -62,9 +62,8 @@ impl TreeStore {
         // Load all log entries and compute nodes.
         // For large trees this loads all entries into memory. Acceptable for Phase 3.
         let entries = log.seq_range(0, u64::MAX)?;
-        let nodes = compute_nodes_from_leaves(
-            entries.iter().map(|e| (e.seq, e.leaf_hash)).collect(),
-        );
+        let nodes =
+            compute_nodes_from_leaves(entries.iter().map(|e| (e.seq, e.leaf_hash)).collect());
         self.write_batch(&nodes)
     }
 }
@@ -148,7 +147,12 @@ mod tests {
         let leaf_hashes = append_n(&log, n);
 
         let nodes = compute_nodes_from_leaves(
-            leaf_hashes.iter().copied().enumerate().map(|(i, h)| (i as u64, h)).collect(),
+            leaf_hashes
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, h)| (i as u64, h))
+                .collect(),
         );
         tree.write_batch(&nodes).unwrap();
 
@@ -174,15 +178,18 @@ mod tests {
 
         // Write via live path.
         let live_nodes = compute_nodes_from_leaves(
-            leaf_hashes.iter().copied().enumerate().map(|(i, h)| (i as u64, h)).collect(),
+            leaf_hashes
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, h)| (i as u64, h))
+                .collect(),
         );
         tree.write_batch(&live_nodes).unwrap();
 
         // Snapshot all nodes before rebuild.
-        let before: HashMap<(u64, u64), [u8; 32]> = live_nodes
-            .iter()
-            .map(|&(l, i, h)| ((l, i), h))
-            .collect();
+        let before: HashMap<(u64, u64), [u8; 32]> =
+            live_nodes.iter().map(|&(l, i, h)| ((l, i), h)).collect();
 
         // Rebuild from log.
         tree.rebuild_from_log(&log).unwrap();
@@ -206,7 +213,12 @@ mod tests {
         let n = 5usize;
         let leaf_hashes = append_n(&log, n);
         let nodes = compute_nodes_from_leaves(
-            leaf_hashes.iter().copied().enumerate().map(|(i, h)| (i as u64, h)).collect(),
+            leaf_hashes
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, h)| (i as u64, h))
+                .collect(),
         );
         tree.write_batch(&nodes).unwrap();
 
@@ -215,10 +227,7 @@ mod tests {
 
         // Spot-check a few nodes.
         for (level, index, expected) in &nodes {
-            assert_eq!(
-                tree.get_node(*level, *index).unwrap().unwrap(),
-                *expected
-            );
+            assert_eq!(tree.get_node(*level, *index).unwrap().unwrap(), *expected);
         }
     }
 }

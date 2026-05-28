@@ -56,11 +56,7 @@ fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
     crate::metrics::STH_SIGNED.inc();
     crate::metrics::TREE_SIZE.set(tree_size as i64);
     crate::metrics::STH_LAST_TIMESTAMP_NS.set(timestamp_ns);
-    tracing::info!(
-        tree_size,
-        root = hex::encode(root_hash),
-        "Signed new STH"
-    );
+    tracing::info!(tree_size, root = hex::encode(root_hash), "Signed new STH");
 
     Ok(())
 }

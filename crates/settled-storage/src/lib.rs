@@ -20,7 +20,9 @@ pub use verify::verify_sth;
 mod crash_recovery_tests {
     use settled_core::hash::leaf_hash;
     use settled_core::merkle::mth;
-    use settled_core::proof::{consistency_proof, inclusion_proof, verify_consistency, verify_inclusion};
+    use settled_core::proof::{
+        consistency_proof, inclusion_proof, verify_consistency, verify_inclusion,
+    };
     use tempfile::TempDir;
 
     use crate::db::Db;
@@ -54,7 +56,12 @@ mod crash_recovery_tests {
             }
 
             let nodes = compute_nodes_from_leaves(
-                leaf_hashes.iter().copied().enumerate().map(|(i, h)| (i as u64, h)).collect(),
+                leaf_hashes
+                    .iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(i, h)| (i as u64, h))
+                    .collect(),
             );
             tree.write_batch(&nodes).unwrap();
 

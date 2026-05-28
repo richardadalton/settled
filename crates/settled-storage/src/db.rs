@@ -94,5 +94,4 @@ impl Db {
     pub fn head_store(&self) -> crate::head_store::HeadStore {
         crate::head_store::HeadStore(self.0.clone())
     }
-
 }

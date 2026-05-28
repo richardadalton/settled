@@ -23,12 +23,8 @@ mod tests {
     use std::fs;
 
     fn load_vectors(name: &str) -> serde_json::Value {
-        let path = format!(
-            "{}/../../test-vectors/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        );
-        let data = fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("cannot read {path}"));
+        let path = format!("{}/../../test-vectors/{name}", env!("CARGO_MANIFEST_DIR"));
+        let data = fs::read_to_string(&path).unwrap_or_else(|_| panic!("cannot read {path}"));
         serde_json::from_str(&data).expect("invalid JSON")
     }
 
@@ -56,9 +52,13 @@ mod tests {
                 continue;
             }
             let left: [u8; 32] = hex::decode(v["left_hex"].as_str().unwrap())
-                .unwrap().try_into().unwrap();
+                .unwrap()
+                .try_into()
+                .unwrap();
             let right: [u8; 32] = hex::decode(v["right_hex"].as_str().unwrap())
-                .unwrap().try_into().unwrap();
+                .unwrap()
+                .try_into()
+                .unwrap();
             let expected = hex::decode(v["hash_hex"].as_str().unwrap()).unwrap();
             let got = node_hash(&left, &right);
             assert_eq!(

@@ -100,10 +100,7 @@ mod tests {
     use std::fs;
 
     fn load_vectors(name: &str) -> serde_json::Value {
-        let path = format!(
-            "{}/../../test-vectors/{name}",
-            env!("CARGO_MANIFEST_DIR")
-        );
+        let path = format!("{}/../../test-vectors/{name}", env!("CARGO_MANIFEST_DIR"));
         let data = fs::read_to_string(&path).unwrap_or_else(|_| panic!("cannot read {path}"));
         serde_json::from_str(&data).expect("invalid JSON")
     }
@@ -117,7 +114,8 @@ mod tests {
         let vectors = load_vectors("tree-roots.json");
         for v in vectors.as_array().unwrap() {
             let leaf_hashes: Vec<[u8; 32]> = v["leaf_hashes_hex"]
-                .as_array().unwrap()
+                .as_array()
+                .unwrap()
                 .iter()
                 .map(|h| decode32(h.as_str().unwrap()))
                 .collect();

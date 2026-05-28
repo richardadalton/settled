@@ -1,6 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use settled_core::hash::{leaf_hash, node_hash};
-use settled_core::proof::{inclusion_proof, consistency_proof, verify_consistency, verify_inclusion};
+use settled_core::proof::{
+    consistency_proof, inclusion_proof, verify_consistency, verify_inclusion,
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -24,9 +26,7 @@ fn bench_hashing(c: &mut Criterion) {
     let mut g = c.benchmark_group("hashing");
     g.throughput(Throughput::Elements(1));
 
-    g.bench_function("leaf_hash/64B", |b| {
-        b.iter(|| leaf_hash(black_box(&data)))
-    });
+    g.bench_function("leaf_hash/64B", |b| b.iter(|| leaf_hash(black_box(&data))));
 
     g.bench_function("node_hash", |b| {
         b.iter(|| node_hash(black_box(&left), black_box(&right)))
@@ -71,13 +71,7 @@ fn bench_verify_consistency(c: &mut Criterion) {
     g.throughput(Throughput::Elements(1));
 
     // (old_size, new_size) pairs — representative transitions.
-    let cases: &[(usize, usize)] = &[
-        (1, 2),
-        (4, 8),
-        (7, 8),
-        (64, 128),
-        (512, 1024),
-    ];
+    let cases: &[(usize, usize)] = &[(1, 2), (4, 8), (7, 8), (64, 128), (512, 1024)];
 
     for &(old, new) in cases {
         let leaves = make_leaves(new);
@@ -112,14 +106,20 @@ fn bench_proof_generation(c: &mut Criterion) {
         let leaves = make_leaves(size);
         let idx = size / 2;
 
-        g.bench_with_input(BenchmarkId::new("inclusion/tree_size", size), &size, |b, _| {
-            b.iter(|| inclusion_proof(black_box(&leaves), black_box(idx)).unwrap())
-        });
+        g.bench_with_input(
+            BenchmarkId::new("inclusion/tree_size", size),
+            &size,
+            |b, _| b.iter(|| inclusion_proof(black_box(&leaves), black_box(idx)).unwrap()),
+        );
 
-        g.bench_with_input(BenchmarkId::new("consistency/tree_size", size), &size, |b, _| {
-            let old = size / 2;
-            b.iter(|| consistency_proof(black_box(&leaves), black_box(old)).unwrap())
-        });
+        g.bench_with_input(
+            BenchmarkId::new("consistency/tree_size", size),
+            &size,
+            |b, _| {
+                let old = size / 2;
+                b.iter(|| consistency_proof(black_box(&leaves), black_box(old)).unwrap())
+            },
+        );
     }
 
     g.finish();

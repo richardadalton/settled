@@ -142,7 +142,10 @@ mod tests {
         assert_eq!(entry.seq, seq);
         assert_eq!(entry.key, b"k1");
         assert_eq!(entry.data, b"hello world");
-        assert_eq!(entry.leaf_hash, settled_core::hash::leaf_hash(b"hello world"));
+        assert_eq!(
+            entry.leaf_hash,
+            settled_core::hash::leaf_hash(b"hello world")
+        );
     }
 
     #[test]
@@ -171,7 +174,11 @@ mod tests {
             seq
         };
         let db2 = Db::open(dir.path()).unwrap();
-        let found_seq = db2.log_store().get_seq_by_key(b"lookup-key").unwrap().unwrap();
+        let found_seq = db2
+            .log_store()
+            .get_seq_by_key(b"lookup-key")
+            .unwrap()
+            .unwrap();
         assert_eq!(found_seq, seq);
     }
 

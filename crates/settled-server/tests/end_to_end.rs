@@ -86,10 +86,7 @@ async fn boot() -> (SocketAddr, TempDir, SettledLogClient<Channel>) {
 /// or panics after ~5 seconds. The STH task fires every 1s in tests.
 async fn wait_for_sth(client: &mut SettledLogClient<Channel>, min_size: u64) -> ProtoSth {
     for _ in 0..50 {
-        if let Ok(res) = client
-            .get_sth(GetSthRequest { tree_size: 0 })
-            .await
-        {
+        if let Ok(res) = client.get_sth(GetSthRequest { tree_size: 0 }).await {
             if let Some(sth) = res.into_inner().sth {
                 if sth.tree_size >= min_size {
                     return sth;
@@ -139,9 +136,7 @@ async fn append_returns_monotonic_seqs_and_correct_leaf_hash() {
 async fn get_round_trips_data_unchanged() {
     let (_addr, _tmp, mut client) = boot().await;
 
-    let payloads: Vec<Vec<u8>> = (0..20)
-        .map(|i| format!("entry-{i}").into_bytes())
-        .collect();
+    let payloads: Vec<Vec<u8>> = (0..20).map(|i| format!("entry-{i}").into_bytes()).collect();
 
     for p in &payloads {
         client
@@ -205,7 +200,10 @@ async fn concurrent_appends_have_unique_gap_free_seqs() {
     }
     seqs.sort_unstable();
     let expected: Vec<u64> = (0..N).collect();
-    assert_eq!(seqs, expected, "every seq from 0..N must appear exactly once");
+    assert_eq!(
+        seqs, expected,
+        "every seq from 0..N must appear exactly once"
+    );
 }
 
 #[tokio::test]
@@ -283,8 +281,7 @@ async fn signed_tree_head_signature_verifies() {
 
     let sth = wait_for_sth(&mut client, 10).await;
 
-    let pk = VerifyingKey::from_bytes(&to_array_32(&sth.public_key))
-        .expect("valid public key");
+    let pk = VerifyingKey::from_bytes(&to_array_32(&sth.public_key)).expect("valid public key");
     let sig = Signature::from_slice(&sth.signature).expect("64-byte signature");
     let root = to_array_32(&sth.root_hash);
 
@@ -345,13 +342,7 @@ async fn inclusion_proof_verifies_against_settled_core() {
         let path: Vec<[u8; 32]> = res.proof.iter().map(|p| to_array_32(p)).collect();
 
         assert!(
-            proof::verify_inclusion(
-                &leaf_hashes[i as usize],
-                i,
-                sth.tree_size,
-                &path,
-                &root,
-            ),
+            proof::verify_inclusion(&leaf_hashes[i as usize], i, sth.tree_size, &path, &root,),
             "inclusion proof for seq {i} must verify",
         );
     }
@@ -407,4 +398,3 @@ async fn consistency_proof_between_two_sths_verifies() {
         "consistency proof between two real STHs must verify",
     );
 }
-

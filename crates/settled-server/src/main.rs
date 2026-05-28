@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use clap::Parser;
 use settled_server::proto::settled_log_server::SettledLogServer;
 use settled_server::{AppState, Config, SettledService};
-use tonic::transport::Server;
 use tokio::net::TcpListener;
+use tonic::transport::Server;
 
 #[derive(Parser)]
 #[command(about = "Settled — tamper-evident audit log server")]

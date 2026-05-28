@@ -5,9 +5,9 @@ use tonic::{Request, Response, Status};
 use crate::error::Error;
 use crate::proto::settled_log_server::SettledLog;
 use crate::proto::{
-    AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse,
-    Entry, GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest,
-    GetSthResponse, InclusionProofRequest, InclusionProofResponse, SignedTreeHead as ProtoSth,
+    AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse, Entry,
+    GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest, GetSthResponse,
+    InclusionProofRequest, InclusionProofResponse, SignedTreeHead as ProtoSth,
 };
 use crate::state::AppState;
 
