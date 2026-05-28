@@ -2,7 +2,7 @@
 
 ## Components
 
-There are two deployable binaries and one CLI tool. The libraries (settled-core, settled-storage, settled-client) are compile-time dependencies — they are not deployed separately.
+There are two deployable binaries and one CLI tool. The libraries (settled-core, settled-storage) are compile-time dependencies — they are not deployed separately.
 
 | Component | Binary | Role | Required |
 |-----------|--------|------|----------|
@@ -427,7 +427,7 @@ The SDKs are client libraries — they are not deployed as services. They are in
 | Go | `go get github.com/richardadalton/settled/sdks/go` |
 | Java | `implementation 'io.github.richardadalton:settled-sdk:0.1.0'` (Gradle) |
 | .NET | `dotnet add package Settled.Sdk` |
-| Rust | Add `settled-client` path dependency from `crates/settled-client/` |
+| Rust | `cargo add settled-sdk` (crates.io) or `{ path = "sdks/rust" }` for local use |
 
 For SDK publishing instructions see [`docs/publishing/`](publishing/).
 

@@ -3,9 +3,8 @@ members = [
     "crates/settled-core",
     "crates/settled-storage",
     "crates/settled-server",
-    "crates/settled-client",
     "crates/settled-check",
     "tools/gen-sth-vectors",
 ]
-exclude = ["fuzz"]
+exclude = ["fuzz", "sdks/rust"]
 resolver = "2"

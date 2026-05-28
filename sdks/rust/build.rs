@@ -4,7 +4,7 @@ fn main() {
     let include = format!("{manifest}/proto");
     tonic_build::configure()
         .build_server(false)
-        .compile(&[proto.as_str()], &[include.as_str()])
+        .compile_protos(&[proto.as_str()], &[include.as_str()])
         .expect("failed to compile proto");
     println!("cargo:rerun-if-changed=proto/settled.v1.proto");
 }

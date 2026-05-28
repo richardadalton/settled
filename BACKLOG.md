@@ -134,11 +134,6 @@ Only `settled-core` (Rust) has fuzz targets. The TypeScript and Python verifiers
 
 ## Code Quality
 
-### `settled-client` crate is not used consistently
-The server's E2E tests import the tonic client directly from `settled_server::proto` instead of going through `settled-client`. The crate exists but is not the canonical Rust consumer path.
-- Decide: make `settled-client` the canonical Rust client and use it in tests, or remove the crate and direct Rust users to the Rust SDK
-- Update integration tests accordingly
-
 ### `GetLatest` silently clamps at 1000 with no signal to the caller
 The proto comment acknowledges silent clamping. Callers cannot tell they received fewer results than requested.
 - Add `has_more: bool` or `total_available: uint64` to `GetLatestResponse`

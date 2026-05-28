@@ -175,7 +175,6 @@ crates/
   settled-core/       # Merkle tree, inclusion/consistency proofs, Ed25519 STH signing
   settled-storage/    # RocksDB storage layer (log, tree, heads, index, keys column families)
   settled-server/     # gRPC/HTTP server (Tokio + Tonic)
-  settled-client/     # Rust gRPC client library
   settled-check/      # External verifier CLI (verify STH signatures and inclusion proofs)
 sdks/
   typescript/         # npm: @daltonr/settled-sdk

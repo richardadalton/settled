@@ -1,6 +1,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use ed25519_dalek::{Signature, VerifyingKey};
+use settled_sdk::verifier::{verify_inclusion, verify_tree_head};
+use settled_sdk::SettledClient;
 
 #[derive(Parser)]
 #[command(about = "settled-check — verify Settled audit log proofs")]
@@ -39,62 +40,39 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
-    let mut client = settled_client::SettledClient::connect(server.to_owned())
+    let mut client = SettledClient::connect(server.to_owned())
         .await
         .context("Failed to connect to Settled server")?;
 
-    // Fetch the latest STH (tree_size=0 means "latest").
-    let sth_resp = client
+    let sth = client
         .get_sth(0)
         .await
         .context("Failed to fetch latest STH")?;
-
-    let sth = sth_resp.sth.context("Server returned no STH")?;
 
     println!("Latest STH:");
     println!("  tree_size  : {}", sth.tree_size);
     println!("  root_hash  : {}", hex::encode(&sth.root_hash));
     println!("  timestamp  : {} ns", sth.timestamp_ns);
+    println!("  key_version: {}", sth.key_version);
 
-    // Verify the STH Ed25519 signature.
-    let pub_key_arr: [u8; 32] = sth
-        .public_key
-        .as_slice()
-        .try_into()
-        .context("public_key must be 32 bytes")?;
-    let root_arr: [u8; 32] = sth
+    let root: [u8; 32] = sth
         .root_hash
         .as_slice()
         .try_into()
         .context("root_hash must be 32 bytes")?;
-    let sig_arr: [u8; 64] = sth
-        .signature
-        .as_slice()
-        .try_into()
-        .context("signature must be 64 bytes")?;
-    let verifying_key =
-        VerifyingKey::from_bytes(&pub_key_arr).context("Invalid Ed25519 public key")?;
-    let signature = Signature::from_bytes(&sig_arr);
 
-    if !settled_client::verify_tree_head(
-        &verifying_key,
-        sth.tree_size,
-        &root_arr,
-        sth.timestamp_ns,
-        &signature,
-    ) {
+    if !verify_tree_head(sth.tree_size, root, sth.timestamp_ns, &sth.signature, &sth.public_key) {
         anyhow::bail!("STH signature verification FAILED");
     }
     println!("  signature  : OK");
 
     if let Some(seq_num) = seq {
-        // Fetch inclusion proof against the latest tree.
-        let proof_resp = client
+        let proof_res = client
             .inclusion_proof(seq_num, sth.tree_size)
             .await
             .context("Failed to fetch inclusion proof")?;
 
-        let proof_hashes: Vec<[u8; 32]> = proof_resp
+        let path: Vec<[u8; 32]> = proof_res
             .proof
             .iter()
             .map(|h| {
@@ -104,27 +82,21 @@ async fn cmd_verify(server: &str, seq: Option<u64>) -> anyhow::Result<()> {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        // The leaf hash for a log entry is SHA-256(0x00 || data).
-        // We don't have the raw data here; instead we re-fetch the entry.
-        let entry_resp = client.get(seq_num).await.context("Failed to fetch entry")?;
+        let entry = client
+            .get(seq_num)
+            .await
+            .context("Failed to fetch entry")?;
 
-        let entry = entry_resp.entry.context("Server returned no entry")?;
         let leaf: [u8; 32] = entry
             .leaf_hash
             .as_slice()
             .try_into()
             .context("leaf_hash must be 32 bytes")?;
 
-        if settled_client::verify_inclusion(
-            &leaf,
-            proof_resp.leaf_index,
-            sth.tree_size,
-            &proof_hashes,
-            &root_arr,
-        ) {
+        if verify_inclusion(leaf, proof_res.leaf_index, sth.tree_size, &path, root) {
             println!(
                 "  inclusion  : OK (seq={seq_num}, leaf_index={})",
-                proof_resp.leaf_index
+                proof_res.leaf_index
             );
         } else {
             anyhow::bail!("Inclusion proof verification FAILED for seq={seq_num}");

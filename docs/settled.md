@@ -340,7 +340,7 @@ The `verify` and `verifyConsistency` methods are pure functions over `crypto.sub
 | Python | `settled-client` on PyPI | `grpcio-tools` + handwritten verify layer |
 | Go | `github.com/settled/settled-go` | `protoc-gen-go` + handwritten verify layer |
 | Java/Kotlin | Maven Central | `protoc-gen-grpc-java` + verify layer |
-| Rust | `settled-client` on crates.io | `tonic-build` — shares core lib directly |
+| Rust | `settled-sdk` on crates.io | `tonic-build` + handwritten verify layer |
 | .NET | NuGet | `Grpc.Tools` + verify layer |
 
 The proof verification logic — the Merkle path computation — is implemented once in Rust as a `settled-core` crate, then exposed to other languages via:
