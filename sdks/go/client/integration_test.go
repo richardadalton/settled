@@ -213,16 +213,19 @@ func TestIntegration_GetLatestNewestFirst(t *testing.T) {
 		t.Fatalf("get_latest: %v", err)
 	}
 	want := []uint64{9, 8, 7, 6, 5}
-	if len(got) != len(want) {
-		t.Fatalf("len: got %d want %d", len(got), len(want))
+	if len(got.Entries) != len(want) {
+		t.Fatalf("len: got %d want %d", len(got.Entries), len(want))
 	}
-	for i, e := range got {
+	if got.TotalAvailable != 10 {
+		t.Fatalf("total_available: got %d want 10", got.TotalAvailable)
+	}
+	for i, e := range got.Entries {
 		if e.Seq != want[i] {
 			t.Fatalf("seqs[%d]: got %d want %d", i, e.Seq, want[i])
 		}
 	}
-	if string(got[0].Data) != "x-9" {
-		t.Fatalf("newest data: got %q", got[0].Data)
+	if string(got.Entries[0].Data) != "x-9" {
+		t.Fatalf("newest data: got %q", got.Entries[0].Data)
 	}
 
 	// n=0 → server clamps to 1 (single newest entry).
@@ -230,7 +233,7 @@ func TestIntegration_GetLatestNewestFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get_latest(0): %v", err)
 	}
-	if len(one) != 1 || one[0].Seq != 9 {
+	if len(one.Entries) != 1 || one.Entries[0].Seq != 9 {
 		t.Fatalf("n=0 should return [9], got %+v", one)
 	}
 }

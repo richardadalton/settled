@@ -163,15 +163,16 @@ async fn test_get_latest_newest_first() {
     }
 
     let got = c.get_latest(5).await.unwrap();
-    assert_eq!(got.len(), 5);
-    for (i, e) in got.iter().enumerate() {
+    assert_eq!(got.entries.len(), 5);
+    assert_eq!(got.total_available, 10);
+    for (i, e) in got.entries.iter().enumerate() {
         assert_eq!(e.seq, 9 - i as u64);
     }
-    assert_eq!(got[0].data, b"x-9");
+    assert_eq!(got.entries[0].data, b"x-9");
 
     let one = c.get_latest(0).await.unwrap();
-    assert_eq!(one.len(), 1);
-    assert_eq!(one[0].seq, 9);
+    assert_eq!(one.entries.len(), 1);
+    assert_eq!(one.entries[0].seq, 9);
 }
 
 #[tokio::test]
