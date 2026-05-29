@@ -116,11 +116,6 @@ Only `settled-core` (Rust) has fuzz targets. The TypeScript and Python verifiers
 
 ## Code Quality
 
-### `GetLatest` silently clamps at 1000 with no signal to the caller
-The proto comment acknowledges silent clamping. Callers cannot tell they received fewer results than requested.
-- Add `has_more: bool` or `total_available: uint64` to `GetLatestResponse`
-- Update all SDKs to surface this
-
 ### Proto versioning policy is undocumented
 The package is `settled.v1` implying future breaking changes go in `settled.v2`, but there is no stated policy on what constitutes a breaking change.
 - Document the proto versioning policy
