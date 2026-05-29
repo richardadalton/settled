@@ -59,6 +59,10 @@ message GetLatestResponse {
   // Note: entries here reflect what is durable in storage; they may not yet
   // be sealed in the latest STH.
   repeated Entry entries = 1;
+  // Total number of entries durably stored in the log. If this is greater
+  // than len(entries), the response was capped and the caller can use
+  // ListEntries to page through earlier entries.
+  uint64 total_available = 2;
 }
 
 // ── Signed Tree Head ─────────────────────────────────────────────────────────

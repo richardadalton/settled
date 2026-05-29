@@ -62,6 +62,14 @@ pub struct ConsistencyProofResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct GetLatestResult {
+    pub entries: Vec<Entry>,
+    /// Total entries durably stored in the log. If greater than `entries.len()`
+    /// the response was capped; use `list_entries` to page through older ones.
+    pub total_available: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct ListEntriesResult {
     pub entries: Vec<Entry>,
     /// Pass as `cursor` in the next call. `0` means no more pages.
@@ -185,14 +193,18 @@ impl SettledClient {
     }
 
     /// Retrieve the most-recent `n` entries (newest first). `n=0` is treated as 1.
-    /// Values above the server cap are silently clamped.
-    pub async fn get_latest(&mut self, n: u32) -> Result<Vec<Entry>, ClientError> {
+    /// Values above the server cap (1000) are silently clamped; check
+    /// `total_available` to determine whether the result was truncated.
+    pub async fn get_latest(&mut self, n: u32) -> Result<GetLatestResult, ClientError> {
         let r = self
             .inner
             .get_latest(self.make_request(proto::GetLatestRequest { n }))
             .await?
             .into_inner();
-        Ok(r.entries.into_iter().map(from_pb_entry).collect())
+        Ok(GetLatestResult {
+            entries: r.entries.into_iter().map(from_pb_entry).collect(),
+            total_available: r.total_available,
+        })
     }
 
     /// Retrieve a Signed Tree Head. Pass `tree_size=0` for the latest.

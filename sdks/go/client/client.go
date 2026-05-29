@@ -136,25 +136,31 @@ func (c *SettledClient) Get(ctx context.Context, seq uint64) (*Entry, error) {
         return &Entry{Seq: e.Seq, TimestampNs: e.TimestampNs, Key: e.Key, Data: e.Data, LeafHash: e.LeafHash}, nil
 }
 
-// GetLatest returns the most-recent n entries (newest first). n=0 is
-// treated as 1 by the server. Values above the server cap (currently
-// 1000) are silently clamped.
-func (c *SettledClient) GetLatest(ctx context.Context, n uint32) ([]Entry, error) {
-        res, err := c.stub.GetLatest(ctx, &pb.GetLatestRequest{N: n})
-        if err != nil {
-                return nil, err
-        }
-        out := make([]Entry, len(res.Entries))
-        for i, e := range res.Entries {
-                out[i] = Entry{
-                        Seq:         e.Seq,
-                        TimestampNs: e.TimestampNs,
-                        Key:         e.Key,
-                        Data:        e.Data,
-                        LeafHash:    e.LeafHash,
-                }
-        }
-        return out, nil
+// GetLatestResult is returned from GetLatest.
+type GetLatestResult struct {
+	Entries        []Entry
+	TotalAvailable uint64
+}
+
+// GetLatest returns the most-recent n entries (newest first). n=0 is treated
+// as 1 by the server. Values above the server cap (1000) are silently clamped;
+// check TotalAvailable to detect truncation and use ListEntries to page further.
+func (c *SettledClient) GetLatest(ctx context.Context, n uint32) (*GetLatestResult, error) {
+	res, err := c.stub.GetLatest(ctx, &pb.GetLatestRequest{N: n})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Entry, len(res.Entries))
+	for i, e := range res.Entries {
+		out[i] = Entry{
+			Seq:         e.Seq,
+			TimestampNs: e.TimestampNs,
+			Key:         e.Key,
+			Data:        e.Data,
+			LeafHash:    e.LeafHash,
+		}
+	}
+	return &GetLatestResult{Entries: out, TotalAvailable: res.TotalAvailable}, nil
 }
 
 // GetSth retrieves a Signed Tree Head. Pass treeSize=0 for latest.

@@ -72,6 +72,9 @@ public final class SettledClient implements Closeable {
             long treeSize, byte[] rootHash, long timestampNs,
             byte[] signature, byte[] publicKey, int keyVersion) {}
 
+    /** @param totalAvailable total entries in the log; greater than entries.size() means capped */
+    public record GetLatestResult(List<Entry> entries, long totalAvailable) {}
+
     public record InclusionProofResult(
             long leafIndex, long treeSize, List<byte[]> proof, Sth sth) {}
 
@@ -114,6 +117,21 @@ public final class SettledClient implements Closeable {
                         .setData(ByteString.copyFrom(data))
                         .build());
         return new AppendResult(r.getSeq(), r.getTimestampNs(), r.getLeafHash().toByteArray());
+    }
+
+    /**
+     * Return the most-recent n entries (newest first). n=0 is treated as 1 by
+     * the server. Values above the server cap (1000) are silently clamped;
+     * check totalAvailable to detect truncation.
+     */
+    public GetLatestResult getLatest(int n) {
+        GetLatestResponse r = stub.getLatest(GetLatestRequest.newBuilder().setN(n).build());
+        List<Entry> entries = r.getEntriesList().stream()
+                .map(e -> new Entry(e.getSeq(), e.getTimestampNs(),
+                        e.getKey().toByteArray(), e.getData().toByteArray(),
+                        e.getLeafHash().toByteArray()))
+                .toList();
+        return new GetLatestResult(entries, r.getTotalAvailable());
     }
 
     public Entry get(long seq) {

@@ -185,28 +185,31 @@ async fn get_latest_returns_newest_first_and_clamps_zero_to_one() {
             .expect("append");
     }
 
-    let entries = client.get_latest(5).await.expect("get_latest");
-    assert_eq!(entries.len(), 5);
-    let seqs: Vec<u64> = entries.iter().map(|e| e.seq).collect();
+    let res = client.get_latest(5).await.expect("get_latest");
+    assert_eq!(res.entries.len(), 5);
+    assert_eq!(res.total_available, 10);
+    let seqs: Vec<u64> = res.entries.iter().map(|e| e.seq).collect();
     assert_eq!(seqs, vec![9, 8, 7, 6, 5], "newest-first ordering");
-    assert_eq!(entries[0].data, b"p-9");
+    assert_eq!(res.entries[0].data, b"p-9");
 
-    let entries = client.get_latest(0).await.expect("get_latest n=0");
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].seq, 9);
+    let res = client.get_latest(0).await.expect("get_latest n=0");
+    assert_eq!(res.entries.len(), 1);
+    assert_eq!(res.entries[0].seq, 9);
 
-    let entries = client.get_latest(1000).await.expect("get_latest oversize");
-    assert_eq!(entries.len(), 10);
-    assert_eq!(entries[0].seq, 9, "still newest-first");
-    assert_eq!(entries.last().unwrap().seq, 0);
+    let res = client.get_latest(1000).await.expect("get_latest oversize");
+    assert_eq!(res.entries.len(), 10);
+    assert_eq!(res.total_available, 10);
+    assert_eq!(res.entries[0].seq, 9, "still newest-first");
+    assert_eq!(res.entries.last().unwrap().seq, 0);
 }
 
 #[tokio::test]
 async fn get_latest_on_empty_log_returns_no_entries() {
     let (_addr, _tmp, mut client, _sth) = boot().await;
 
-    let entries = client.get_latest(5).await.expect("get_latest");
-    assert!(entries.is_empty(), "empty log must return no entries");
+    let res = client.get_latest(5).await.expect("get_latest");
+    assert!(res.entries.is_empty(), "empty log must return no entries");
+    assert_eq!(res.total_available, 0);
 }
 
 #[tokio::test]

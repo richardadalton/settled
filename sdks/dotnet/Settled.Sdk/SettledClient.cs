@@ -39,6 +39,16 @@ public sealed class InclusionProofResult
     public Sth Sth { get; init; } = new();
 }
 
+public sealed class GetLatestResult
+{
+    public IReadOnlyList<Entry> Entries { get; init; } = [];
+    /// <summary>
+    /// Total entries in the log. Greater than Entries.Count means the
+    /// response was capped; use ListEntriesAsync to page through older entries.
+    /// </summary>
+    public ulong TotalAvailable { get; init; }
+}
+
 public sealed class ListEntriesResult
 {
     public IReadOnlyList<Entry> Entries { get; init; } = [];
@@ -127,11 +137,16 @@ public sealed class SettledClient : IDisposable
     /// <summary>
     /// Returns the most-recent <paramref name="n"/> entries (newest first).
     /// n=0 is treated as 1 by the server. Values above the server cap (1000) are silently clamped.
+    /// Check TotalAvailable to detect truncation; use ListEntriesAsync to page through older entries.
     /// </summary>
-    public async Task<IReadOnlyList<Entry>> GetLatestAsync(uint n = 1, CancellationToken ct = default)
+    public async Task<GetLatestResult> GetLatestAsync(uint n = 1, CancellationToken ct = default)
     {
         var res = await _stub.GetLatestAsync(new GetLatestRequest { N = n }, headers: _headers, cancellationToken: ct);
-        return res.Entries.Select(MapEntry).ToArray();
+        return new GetLatestResult
+        {
+            Entries = res.Entries.Select(MapEntry).ToArray(),
+            TotalAvailable = res.TotalAvailable,
+        };
     }
 
     /// <summary>Retrieve a Signed Tree Head. Pass treeSize=0 for the latest.</summary>

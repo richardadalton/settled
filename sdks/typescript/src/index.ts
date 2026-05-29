@@ -3,6 +3,7 @@ export type {
   ConsistencyProofResult,
   Entry,
   GetByKeyResult,
+  GetLatestResult,
   InclusionProofResult,
   ListEntriesResult,
   SignedTreeHead,

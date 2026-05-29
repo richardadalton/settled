@@ -357,9 +357,13 @@ type GetLatestResponse struct {
 	// durably-stored entry. Empty if the log has no entries yet.
 	// Note: entries here reflect what is durable in storage; they may not yet
 	// be sealed in the latest STH.
-	Entries       []*Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Entries []*Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	// Total number of entries durably stored in the log. If this is greater
+	// than len(entries), the response was capped and the caller can use
+	// ListEntries to page through earlier entries.
+	TotalAvailable uint64 `protobuf:"varint,2,opt,name=total_available,json=totalAvailable,proto3" json:"total_available,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetLatestResponse) Reset() {
@@ -397,6 +401,13 @@ func (x *GetLatestResponse) GetEntries() []*Entry {
 		return x.Entries
 	}
 	return nil
+}
+
+func (x *GetLatestResponse) GetTotalAvailable() uint64 {
+	if x != nil {
+		return x.TotalAvailable
+	}
+	return 0
 }
 
 type SignedTreeHead struct {
@@ -1136,9 +1147,10 @@ const file_settled_v1_proto_rawDesc = "" +
 	"\vGetResponse\x12'\n" +
 	"\x05entry\x18\x01 \x01(\v2\x11.settled.v1.EntryR\x05entry\" \n" +
 	"\x10GetLatestRequest\x12\f\n" +
-	"\x01n\x18\x01 \x01(\rR\x01n\"@\n" +
+	"\x01n\x18\x01 \x01(\rR\x01n\"i\n" +
 	"\x11GetLatestResponse\x12+\n" +
-	"\aentries\x18\x01 \x03(\v2\x11.settled.v1.EntryR\aentries\"\xcb\x01\n" +
+	"\aentries\x18\x01 \x03(\v2\x11.settled.v1.EntryR\aentries\x12'\n" +
+	"\x0ftotal_available\x18\x02 \x01(\x04R\x0etotalAvailable\"\xcb\x01\n" +
 	"\x0eSignedTreeHead\x12\x1b\n" +
 	"\ttree_size\x18\x01 \x01(\x04R\btreeSize\x12\x1b\n" +
 	"\troot_hash\x18\x02 \x01(\fR\brootHash\x12!\n" +

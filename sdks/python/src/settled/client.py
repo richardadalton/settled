@@ -48,6 +48,12 @@ class InclusionProofResult:
 
 
 @dataclass
+class GetLatestResult:
+    entries: list[Entry]
+    total_available: int  # total entries in the log; > len(entries) means capped
+
+
+@dataclass
 class GetByKeyResult:
     entries: list[Entry]
     next_cursor: int  # 0 = no more pages
@@ -120,25 +126,28 @@ class SettledClient:
             leaf_hash=bytes(e.leaf_hash),
         )
 
-    def get_latest(self, n: int = 1) -> list[Entry]:
+    def get_latest(self, n: int = 1) -> GetLatestResult:
         """Return the most-recent ``n`` entries (newest first).
 
-        ``n == 0`` is treated as 1 by the server. Values above the
-        server cap (currently 1000) are silently clamped. Returns an
-        empty list if the log has no entries yet.
+        ``n == 0`` is treated as 1 by the server. Values above the server cap
+        (1000) are silently clamped. Check ``total_available`` to detect
+        truncation; use ``list_entries`` to page through older entries.
         """
         from settled.proto import settled_v1_pb2  # type: ignore[import]
         res = self._stub.GetLatest(settled_v1_pb2.GetLatestRequest(n=n), metadata=self._metadata)
-        return [
-            Entry(
-                seq=e.seq,
-                timestamp_ns=e.timestamp_ns,
-                key=bytes(e.key),
-                data=bytes(e.data),
-                leaf_hash=bytes(e.leaf_hash),
-            )
-            for e in res.entries
-        ]
+        return GetLatestResult(
+            entries=[
+                Entry(
+                    seq=e.seq,
+                    timestamp_ns=e.timestamp_ns,
+                    key=bytes(e.key),
+                    data=bytes(e.data),
+                    leaf_hash=bytes(e.leaf_hash),
+                )
+                for e in res.entries
+            ],
+            total_available=res.total_available,
+        )
 
     def watch_entries(self, from_seq: int = 0) -> Generator[Entry, None, None]:
         """Stream entries via a server-side Watch RPC.

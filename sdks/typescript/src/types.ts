@@ -36,6 +36,13 @@ export interface ConsistencyProofResult {
   newSth: SignedTreeHead;
 }
 
+export interface GetLatestResult {
+  entries: Entry[];
+  /** Total entries in the log. Greater than entries.length means the result
+   *  was capped; use listEntries to page through older entries. */
+  totalAvailable: bigint;
+}
+
 export interface ListEntriesResult {
   entries: Entry[];
   /** Pass as `cursor` in the next call. `0n` means no more pages. */

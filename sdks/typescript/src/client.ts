@@ -8,6 +8,7 @@ import type {
   ConsistencyProofResult,
   Entry,
   GetByKeyResult,
+  GetLatestResult,
   InclusionProofResult,
   ListEntriesResult,
   SignedTreeHead,
@@ -145,10 +146,10 @@ export class SettledClient {
    * Fetch the most-recent ``n`` entries (newest first).
    *
    * ``n = 0`` is treated as 1 by the server. Values above the server cap
-   * (currently 1000) are silently clamped. Returns an empty array if the
-   * log has no entries yet.
+   * (currently 1000) are silently clamped. Check ``totalAvailable`` to
+   * detect truncation; use ``listEntries`` to page through older entries.
    */
-  getLatest(n = 1): Promise<Entry[]> {
+  getLatest(n = 1): Promise<GetLatestResult> {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['getLatest'](
         { n },
@@ -165,7 +166,7 @@ export class SettledClient {
               leafHash: toBytes(e['leaf_hash']),
             } satisfies Entry;
           });
-          resolve(entries);
+          resolve({ entries, totalAvailable: toBigInt(res['total_available']) });
         },
       );
     });

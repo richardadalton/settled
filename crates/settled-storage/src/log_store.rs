@@ -48,6 +48,11 @@ impl LogStore {
         Ok((seq, timestamp_ns))
     }
 
+    /// Returns the total number of entries durably stored (O(1)).
+    pub fn count(&self) -> u64 {
+        self.0.next_seq.load(Ordering::SeqCst)
+    }
+
     pub fn get_by_seq(&self, seq: u64) -> Result<Option<LogEntry>> {
         let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
         match self.0.db.get_cf(cf, seq.to_be_bytes())? {

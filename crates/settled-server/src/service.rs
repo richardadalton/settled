@@ -122,6 +122,7 @@ impl SettledLog for SettledService {
         let req = request.into_inner();
         let n = if req.n == 0 { 1 } else { req.n.min(MAX_LATEST) } as usize;
 
+        let total_available = self.state.log.count();
         let log = self.state.log.clone();
         let entries = tokio::task::spawn_blocking(move || log.latest(n))
             .await
@@ -139,7 +140,10 @@ impl SettledLog for SettledService {
             })
             .collect();
 
-        Ok(Response::new(GetLatestResponse { entries }))
+        Ok(Response::new(GetLatestResponse {
+            entries,
+            total_available,
+        }))
     }
 
     async fn watch(
