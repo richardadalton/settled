@@ -259,8 +259,14 @@ async fn mode_default(
 
     println!("Fetching audit trail …\n");
     let mut entries = Vec::new();
-    for seq in 0..sth.tree_size {
-        entries.push(c.get(seq).await?);
+    let mut cursor = 0u64;
+    loop {
+        let page = c.list_entries(0, sth.tree_size, cursor, 0).await?;
+        entries.extend(page.entries);
+        if page.next_cursor == 0 {
+            break;
+        }
+        cursor = page.next_cursor;
     }
 
     let verified = if do_verify {

@@ -370,14 +370,19 @@ func modeDefault(ctx context.Context, c *client.SettledClient, doVerify, doConsi
 	}
 
 	fmt.Println("Fetching audit trail …\n")
-	entries := make([]client.Entry, 0, sth.TreeSize)
-	for s := uint64(0); s < sth.TreeSize; s++ {
-		e, err := c.Get(ctx, s)
+	var entries []client.Entry
+	var cursor uint64
+	for {
+		page, err := c.ListEntries(ctx, 0, sth.TreeSize, cursor, 0)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return
 		}
-		entries = append(entries, *e)
+		entries = append(entries, page.Entries...)
+		if page.NextCursor == 0 {
+			break
+		}
+		cursor = page.NextCursor
 	}
 
 	var verified map[uint64]bool

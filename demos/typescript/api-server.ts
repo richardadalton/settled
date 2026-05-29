@@ -45,18 +45,21 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (url.pathname === '/api/entries' && req.method === 'GET') {
-      const sth = await client.getSth();
-      const entries = await Promise.all(
-        Array.from({ length: Number(sth.treeSize) }, (_, i) =>
-          client.get(BigInt(i)).then((e) => ({
+      const entries: unknown[] = [];
+      let cursor = 0n;
+      do {
+        const page = await client.listEntries(0n, 0n, cursor);
+        for (const e of page.entries) {
+          entries.push({
             seq: String(e.seq),
             key: dec.decode(e.key),
             data: dec.decode(e.data),
             timestampNs: String(e.timestampNs),
             leafHash: hex(e.leafHash),
-          })),
-        ),
-      );
+          });
+        }
+        cursor = page.nextCursor;
+      } while (cursor !== 0n);
       return json(res, entries);
     }
 
