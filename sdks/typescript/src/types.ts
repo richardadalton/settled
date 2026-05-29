@@ -36,6 +36,12 @@ export interface ConsistencyProofResult {
   newSth: SignedTreeHead;
 }
 
+export interface ListEntriesResult {
+  entries: Entry[];
+  /** Pass as `cursor` in the next call. `0n` means no more pages. */
+  nextCursor: bigint;
+}
+
 export interface GetByKeyResult {
   entries: Entry[];
   /** Pass as `cursor` in the next call. `0n` means no more pages. */

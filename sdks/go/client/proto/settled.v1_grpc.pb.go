@@ -22,6 +22,7 @@ const (
 	SettledLog_Append_FullMethodName           = "/settled.v1.SettledLog/Append"
 	SettledLog_Get_FullMethodName              = "/settled.v1.SettledLog/Get"
 	SettledLog_GetLatest_FullMethodName        = "/settled.v1.SettledLog/GetLatest"
+	SettledLog_ListEntries_FullMethodName      = "/settled.v1.SettledLog/ListEntries"
 	SettledLog_GetByKey_FullMethodName         = "/settled.v1.SettledLog/GetByKey"
 	SettledLog_GetSth_FullMethodName           = "/settled.v1.SettledLog/GetSth"
 	SettledLog_InclusionProof_FullMethodName   = "/settled.v1.SettledLog/InclusionProof"
@@ -39,6 +40,9 @@ type SettledLogClient interface {
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResponse, error)
+	// Retrieve a seq-ordered page of entries within [from_seq, to_seq).
+	// cursor overrides from_seq for subsequent pages; next_cursor == 0 means done.
+	ListEntries(ctx context.Context, in *ListEntriesRequest, opts ...grpc.CallOption) (*ListEntriesResponse, error)
 	// Retrieve all entries for a given key, newest-to-oldest within the log, with
 	// cursor-based pagination. cursor == 0 starts from the beginning of the log.
 	// next_cursor == 0 in the response means no further pages exist.
@@ -83,6 +87,16 @@ func (c *settledLogClient) GetLatest(ctx context.Context, in *GetLatestRequest, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetLatestResponse)
 	err := c.cc.Invoke(ctx, SettledLog_GetLatest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settledLogClient) ListEntries(ctx context.Context, in *ListEntriesRequest, opts ...grpc.CallOption) (*ListEntriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEntriesResponse)
+	err := c.cc.Invoke(ctx, SettledLog_ListEntries_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +154,9 @@ type SettledLogServer interface {
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error)
+	// Retrieve a seq-ordered page of entries within [from_seq, to_seq).
+	// cursor overrides from_seq for subsequent pages; next_cursor == 0 means done.
+	ListEntries(context.Context, *ListEntriesRequest) (*ListEntriesResponse, error)
 	// Retrieve all entries for a given key, newest-to-oldest within the log, with
 	// cursor-based pagination. cursor == 0 starts from the beginning of the log.
 	// next_cursor == 0 in the response means no further pages exist.
@@ -168,6 +185,9 @@ func (UnimplementedSettledLogServer) Get(context.Context, *GetRequest) (*GetResp
 }
 func (UnimplementedSettledLogServer) GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLatest not implemented")
+}
+func (UnimplementedSettledLogServer) ListEntries(context.Context, *ListEntriesRequest) (*ListEntriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEntries not implemented")
 }
 func (UnimplementedSettledLogServer) GetByKey(context.Context, *GetByKeyRequest) (*GetByKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetByKey not implemented")
@@ -252,6 +272,24 @@ func _SettledLog_GetLatest_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SettledLogServer).GetLatest(ctx, req.(*GetLatestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettledLog_ListEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEntriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettledLogServer).ListEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettledLog_ListEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettledLogServer).ListEntries(ctx, req.(*ListEntriesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -346,6 +384,10 @@ var SettledLog_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLatest",
 			Handler:    _SettledLog_GetLatest_Handler,
+		},
+		{
+			MethodName: "ListEntries",
+			Handler:    _SettledLog_ListEntries_Handler,
 		},
 		{
 			MethodName: "GetByKey",

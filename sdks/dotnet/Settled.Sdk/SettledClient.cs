@@ -37,6 +37,13 @@ public sealed class InclusionProofResult
     public Sth Sth { get; init; } = new();
 }
 
+public sealed class ListEntriesResult
+{
+    public IReadOnlyList<Entry> Entries { get; init; } = [];
+    /// <summary>Pass as cursor in the next call. 0 = no more pages.</summary>
+    public ulong NextCursor { get; init; }
+}
+
 public sealed class ConsistencyProofResult
 {
     public ulong OldSize { get; init; }
@@ -76,6 +83,26 @@ public sealed class SettledClient : IDisposable
     {
         var res = await _stub.GetAsync(new GetRequest { Seq = seq }, headers: _headers, cancellationToken: ct);
         return MapEntry(res.Entry);
+    }
+
+    /// <summary>
+    /// Returns a seq-ordered page of entries within [fromSeq, toSeq).
+    /// toSeq=0 scans to the end of the log. cursor=0 starts from fromSeq;
+    /// pass NextCursor from the previous response to continue pagination.
+    /// limit=0 uses the server default (50); values above 1000 are clamped.
+    /// </summary>
+    public async Task<ListEntriesResult> ListEntriesAsync(
+        ulong fromSeq = 0, ulong toSeq = 0, ulong cursor = 0, uint limit = 0,
+        CancellationToken ct = default)
+    {
+        var res = await _stub.ListEntriesAsync(
+            new ListEntriesRequest { FromSeq = fromSeq, ToSeq = toSeq, Cursor = cursor, Limit = limit },
+            headers: _headers, cancellationToken: ct);
+        return new ListEntriesResult
+        {
+            Entries = res.Entries.Select(MapEntry).ToArray(),
+            NextCursor = res.NextCursor,
+        };
     }
 
     /// <summary>

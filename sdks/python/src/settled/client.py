@@ -48,6 +48,12 @@ class InclusionProofResult:
 
 
 @dataclass
+class ListEntriesResult:
+    entries: list[Entry]
+    next_cursor: int  # 0 = no more pages
+
+
+@dataclass
 class ConsistencyProofResult:
     old_size: int
     new_size: int
@@ -127,6 +133,41 @@ class SettledClient:
             )
             for e in res.entries
         ]
+
+    def list_entries(
+        self,
+        from_seq: int = 0,
+        to_seq: int = 0,
+        cursor: int = 0,
+        limit: int = 0,
+    ) -> ListEntriesResult:
+        """Return a page of entries in seq order within [from_seq, to_seq).
+
+        ``to_seq = 0`` scans to the end of the log. Pass ``cursor = 0`` to
+        start from ``from_seq``; pass ``next_cursor`` from the previous
+        response to continue pagination. ``limit = 0`` uses the server default
+        (50); values above 1000 are clamped.
+        """
+        from settled.proto import settled_v1_pb2  # type: ignore[import]
+        res = self._stub.ListEntries(
+            settled_v1_pb2.ListEntriesRequest(
+                from_seq=from_seq, to_seq=to_seq, cursor=cursor, limit=limit
+            ),
+            metadata=self._metadata,
+        )
+        return ListEntriesResult(
+            entries=[
+                Entry(
+                    seq=e.seq,
+                    timestamp_ns=e.timestamp_ns,
+                    key=bytes(e.key),
+                    data=bytes(e.data),
+                    leaf_hash=bytes(e.leaf_hash),
+                )
+                for e in res.entries
+            ],
+            next_cursor=res.next_cursor,
+        )
 
     def get_sth(self, tree_size: int = 0) -> SignedTreeHead:
         from settled.proto import settled_v1_pb2  # type: ignore[import]

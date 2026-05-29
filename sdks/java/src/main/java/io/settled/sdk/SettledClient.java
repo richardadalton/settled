@@ -74,6 +74,10 @@ public final class SettledClient implements Closeable {
     public record InclusionProofResult(
             long leafIndex, long treeSize, List<byte[]> proof, Sth sth) {}
 
+    /** @param nextCursor pass as cursor in the next call; 0 = no more pages */
+    public record ListEntriesResult(
+            List<Entry> entries, long nextCursor) {}
+
     public record ConsistencyProofResult(
             long oldSize, long newSize, List<byte[]> proof,
             Sth oldSth, Sth newSth) {}
@@ -94,6 +98,28 @@ public final class SettledClient implements Closeable {
         SettledV1.Entry e = r.getEntry();
         return new Entry(e.getSeq(), e.getTimestampNs(),
                 e.getKey().toByteArray(), e.getData().toByteArray(), e.getLeafHash().toByteArray());
+    }
+
+    /**
+     * Return a seq-ordered page of entries within [fromSeq, toSeq).
+     * toSeq == 0 scans to the end of the log. cursor == 0 starts from fromSeq;
+     * pass nextCursor from the previous response to continue pagination.
+     * limit == 0 uses the server default (50); values above 1000 are clamped.
+     */
+    public ListEntriesResult listEntries(long fromSeq, long toSeq, long cursor, int limit) {
+        ListEntriesResponse r = stub.listEntries(
+                ListEntriesRequest.newBuilder()
+                        .setFromSeq(fromSeq)
+                        .setToSeq(toSeq)
+                        .setCursor(cursor)
+                        .setLimit(limit)
+                        .build());
+        List<Entry> entries = r.getEntriesList().stream()
+                .map(e -> new Entry(e.getSeq(), e.getTimestampNs(),
+                        e.getKey().toByteArray(), e.getData().toByteArray(),
+                        e.getLeafHash().toByteArray()))
+                .toList();
+        return new ListEntriesResult(entries, r.getNextCursor());
     }
 
     /** Pass treeSize == 0 to get the latest STH. */

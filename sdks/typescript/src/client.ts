@@ -9,6 +9,7 @@ import type {
   Entry,
   GetByKeyResult,
   InclusionProofResult,
+  ListEntriesResult,
   SignedTreeHead,
 } from './types.js';
 
@@ -196,6 +197,45 @@ export class SettledClient {
             proof: (res['proof'] as unknown[]).map(toBytes),
             sth: fromSth(res['sth'] as Record<string, unknown>),
           });
+        },
+      );
+    });
+  }
+
+  /**
+   * Retrieve a page of entries in seq order within `[fromSeq, toSeq)`.
+   * `toSeq = 0n` scans to the end of the log. Pass `cursor = 0n` to start
+   * from `fromSeq`; pass `nextCursor` from the previous response to page.
+   * `limit = 0` uses the server default (50).
+   */
+  listEntries(
+    fromSeq: bigint = 0n,
+    toSeq: bigint = 0n,
+    cursor: bigint = 0n,
+    limit = 0,
+  ): Promise<ListEntriesResult> {
+    return new Promise((resolve, reject) => {
+      (this.stub as unknown as Record<string, Function>)['listEntries'](
+        {
+          from_seq: fromSeq.toString(),
+          to_seq: toSeq.toString(),
+          cursor: cursor.toString(),
+          limit,
+        },
+        this.metadata,
+        (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
+          if (err) return reject(err);
+          const entries = ((res['entries'] as unknown[]) ?? []).map((raw) => {
+            const e = raw as Record<string, unknown>;
+            return {
+              seq: toBigInt(e['seq']),
+              timestampNs: toBigInt(e['timestamp_ns']),
+              key: toBytes(e['key']),
+              data: toBytes(e['data']),
+              leafHash: toBytes(e['leaf_hash']),
+            } satisfies Entry;
+          });
+          resolve({ entries, nextCursor: toBigInt(res['next_cursor']) });
         },
       );
     });

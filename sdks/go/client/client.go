@@ -196,6 +196,39 @@ func (c *SettledClient) ConsistencyProof(ctx context.Context, oldSize, newSize u
 	}, nil
 }
 
+// ListEntriesResult is returned from ListEntries.
+type ListEntriesResult struct {
+	Entries    []Entry
+	NextCursor uint64
+}
+
+// ListEntries returns a seq-ordered page of entries within [fromSeq, toSeq).
+// toSeq=0 scans to the end of the log. cursor=0 starts from fromSeq; pass
+// NextCursor from the previous response to continue. limit=0 uses the server
+// default (50).
+func (c *SettledClient) ListEntries(ctx context.Context, fromSeq, toSeq, cursor uint64, limit uint32) (*ListEntriesResult, error) {
+	res, err := c.stub.ListEntries(ctx, &pb.ListEntriesRequest{
+		FromSeq: fromSeq,
+		ToSeq:   toSeq,
+		Cursor:  cursor,
+		Limit:   limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Entry, len(res.Entries))
+	for i, e := range res.Entries {
+		out[i] = Entry{
+			Seq:         e.Seq,
+			TimestampNs: e.TimestampNs,
+			Key:         e.Key,
+			Data:        e.Data,
+			LeafHash:    e.LeafHash,
+		}
+	}
+	return &ListEntriesResult{Entries: out, NextCursor: res.NextCursor}, nil
+}
+
 // GetByKeyResult is returned from GetByKey.
 type GetByKeyResult struct {
 	Entries    []Entry

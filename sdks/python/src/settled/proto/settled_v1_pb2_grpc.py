@@ -51,6 +51,16 @@ class SettledLogStub(object):
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
                 response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
                 _registered_method=True)
+        self.ListEntries = channel.unary_unary(
+                '/settled.v1.SettledLog/ListEntries',
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.ListEntriesRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.ListEntriesResponse.FromString,
+                _registered_method=True)
+        self.GetByKey = channel.unary_unary(
+                '/settled.v1.SettledLog/GetByKey',
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetByKeyRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetByKeyResponse.FromString,
+                _registered_method=True)
         self.GetSth = channel.unary_unary(
                 '/settled.v1.SettledLog/GetSth',
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetSthRequest.SerializeToString,
@@ -95,6 +105,23 @@ class SettledLogServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListEntries(self, request, context):
+        """Retrieve a seq-ordered page of entries within [from_seq, to_seq).
+        cursor overrides from_seq for subsequent pages; next_cursor == 0 means done.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetByKey(self, request, context):
+        """Retrieve all entries for a given key, newest-to-oldest within the log, with
+        cursor-based pagination. cursor == 0 starts from the beginning of the log.
+        next_cursor == 0 in the response means no further pages exist.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetSth(self, request, context):
         """Retrieve a Signed Tree Head. tree_size == 0 returns the latest.
         """
@@ -133,6 +160,16 @@ def add_SettledLogServicer_to_server(servicer, server):
                     servicer.GetLatest,
                     request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.FromString,
                     response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.SerializeToString,
+            ),
+            'ListEntries': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListEntries,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.ListEntriesRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.ListEntriesResponse.SerializeToString,
+            ),
+            'GetByKey': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetByKey,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetByKeyRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetByKeyResponse.SerializeToString,
             ),
             'GetSth': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSth,
@@ -233,6 +270,60 @@ class SettledLog(object):
             '/settled.v1.SettledLog/GetLatest',
             settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
             settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListEntries(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/settled.v1.SettledLog/ListEntries',
+            settled_dot_proto_dot_settled__v1__pb2.ListEntriesRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.ListEntriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetByKey(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/settled.v1.SettledLog/GetByKey',
+            settled_dot_proto_dot_settled__v1__pb2.GetByKeyRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.GetByKeyResponse.FromString,
             options,
             channel_credentials,
             insecure,

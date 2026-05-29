@@ -111,6 +111,47 @@ impl LogStore {
         Ok((entries, next_cursor))
     }
 
+    /// Returns up to `limit` entries with seq in `[start, end)` (end == 0 means
+    /// no upper bound).  Returns `(entries, next_cursor)` where `next_cursor` is
+    /// the seq to pass on the next call (0 = no more entries in the range).
+    pub fn seq_range_paged(
+        &self,
+        start: u64,
+        end: u64,
+        limit: usize,
+    ) -> Result<(Vec<LogEntry>, u64)> {
+        if limit == 0 {
+            return Ok((Vec::new(), 0));
+        }
+        let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
+        let start_bytes = start.to_be_bytes();
+        let iter = self
+            .0
+            .db
+            .iterator_cf(cf, IteratorMode::From(&start_bytes, Direction::Forward));
+        let mut entries = Vec::with_capacity(limit);
+        let mut next_cursor = 0u64;
+        for item in iter {
+            let (k, v) = item?;
+            let seq = u64::from_be_bytes(
+                k.as_ref()
+                    .try_into()
+                    .map_err(|_| Error::Corruption("bad seq key length".into()))?,
+            );
+            if end != 0 && seq >= end {
+                break;
+            }
+            let proto = LogEntryProto::decode(v.as_ref())?;
+            entries.push(LogEntry::try_from(proto)?);
+            if entries.len() >= limit {
+                let next = seq + 1;
+                next_cursor = if end == 0 || next < end { next } else { 0 };
+                break;
+            }
+        }
+        Ok((entries, next_cursor))
+    }
+
     /// Returns all entries with seq in `[start, end)`.
     pub fn seq_range(&self, start: u64, end: u64) -> Result<Vec<LogEntry>> {
         let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");

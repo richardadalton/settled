@@ -4,6 +4,7 @@ export type {
   Entry,
   GetByKeyResult,
   InclusionProofResult,
+  ListEntriesResult,
   SignedTreeHead,
 } from './types.js';
 

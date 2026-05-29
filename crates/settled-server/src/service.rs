@@ -8,7 +8,7 @@ use crate::proto::{
     AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse, Entry,
     GetByKeyRequest, GetByKeyResponse, GetLatestRequest, GetLatestResponse, GetRequest,
     GetResponse, GetSthRequest, GetSthResponse, InclusionProofRequest, InclusionProofResponse,
-    SignedTreeHead as ProtoSth,
+    ListEntriesRequest, ListEntriesResponse, SignedTreeHead as ProtoSth,
 };
 use crate::state::AppState;
 
@@ -20,6 +20,11 @@ const MAX_LATEST: u32 = 1000;
 const MAX_BY_KEY: u32 = 1000;
 /// Default page size for GetByKey when limit == 0.
 const DEFAULT_BY_KEY: u32 = 50;
+
+/// Maximum number of entries returnable by a single ListEntries call.
+const MAX_LIST: u32 = 1000;
+/// Default page size for ListEntries when limit == 0.
+const DEFAULT_LIST: u32 = 50;
 
 pub struct SettledService {
     state: AppState,
@@ -120,6 +125,47 @@ impl SettledLog for SettledService {
             .collect();
 
         Ok(Response::new(GetLatestResponse { entries }))
+    }
+
+    async fn list_entries(
+        &self,
+        request: Request<ListEntriesRequest>,
+    ) -> Result<Response<ListEntriesResponse>, Status> {
+        let req = request.into_inner();
+        let limit = if req.limit == 0 {
+            DEFAULT_LIST
+        } else {
+            req.limit.min(MAX_LIST)
+        } as usize;
+        let start = if req.cursor > 0 {
+            req.cursor
+        } else {
+            req.from_seq
+        };
+
+        let log = self.state.log.clone();
+        let to_seq = req.to_seq;
+        let (entries, next_cursor) =
+            tokio::task::spawn_blocking(move || log.seq_range_paged(start, to_seq, limit))
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?
+                .map_err(|e| Status::from(Error::Storage(e)))?;
+
+        let entries = entries
+            .into_iter()
+            .map(|e| Entry {
+                seq: e.seq,
+                timestamp_ns: e.timestamp_ns,
+                key: e.key,
+                data: e.data,
+                leaf_hash: e.leaf_hash.to_vec(),
+            })
+            .collect();
+
+        Ok(Response::new(ListEntriesResponse {
+            entries,
+            next_cursor,
+        }))
     }
 
     async fn get_by_key(

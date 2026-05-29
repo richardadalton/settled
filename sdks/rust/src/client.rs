@@ -62,6 +62,13 @@ pub struct ConsistencyProofResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct ListEntriesResult {
+    pub entries: Vec<Entry>,
+    /// Pass as `cursor` in the next call. `0` means no more pages.
+    pub next_cursor: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct GetByKeyResult {
     pub entries: Vec<Entry>,
     /// Pass as `cursor` in the next call. `0` means no more pages.
@@ -197,6 +204,33 @@ impl SettledClient {
             tree_size: r.tree_size,
             proof: r.proof,
             sth: from_pb_sth(r.sth.unwrap_or_default()),
+        })
+    }
+
+    /// Retrieve a page of entries in seq order within `[from_seq, to_seq)`.
+    /// `to_seq = 0` scans to the end of the log. Pass `cursor = 0` to start
+    /// from `from_seq`; pass `next_cursor` from the previous response to page.
+    /// `limit = 0` uses the server default (50).
+    pub async fn list_entries(
+        &mut self,
+        from_seq: u64,
+        to_seq: u64,
+        cursor: u64,
+        limit: u32,
+    ) -> Result<ListEntriesResult, ClientError> {
+        let r = self
+            .inner
+            .list_entries(self.make_request(proto::ListEntriesRequest {
+                from_seq,
+                to_seq,
+                cursor,
+                limit,
+            }))
+            .await?
+            .into_inner();
+        Ok(ListEntriesResult {
+            entries: r.entries.into_iter().map(from_pb_entry).collect(),
+            next_cursor: r.next_cursor,
         })
     }
 
