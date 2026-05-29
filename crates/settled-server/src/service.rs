@@ -202,7 +202,7 @@ impl SettledLog for SettledService {
             loop {
                 match watch_rx.recv().await {
                     Ok(entry) => {
-                        if last_sent.map_or(false, |last| entry.seq <= last) {
+                        if last_sent.is_some_and(|last| entry.seq <= last) {
                             continue;
                         }
                         last_sent = Some(entry.seq);
