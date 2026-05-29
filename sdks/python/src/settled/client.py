@@ -48,6 +48,12 @@ class InclusionProofResult:
 
 
 @dataclass
+class GetByKeyResult:
+    entries: list[Entry]
+    next_cursor: int  # 0 = no more pages
+
+
+@dataclass
 class ListEntriesResult:
     entries: list[Entry]
     next_cursor: int  # 0 = no more pages
@@ -133,6 +139,38 @@ class SettledClient:
             )
             for e in res.entries
         ]
+
+    def get_by_key(
+        self,
+        key: bytes,
+        cursor: int = 0,
+        limit: int = 0,
+    ) -> GetByKeyResult:
+        """Return all entries for an exact key match, with cursor-based pagination.
+
+        ``cursor = 0`` starts from the beginning of the log. Pass
+        ``next_cursor`` from the previous response to continue.
+        ``limit = 0`` uses the server default (50); values above 1000 are clamped.
+        ``next_cursor == 0`` in the response means no further pages.
+        """
+        from settled.proto import settled_v1_pb2  # type: ignore[import]
+        res = self._stub.GetByKey(
+            settled_v1_pb2.GetByKeyRequest(key=key, cursor=cursor, limit=limit),
+            metadata=self._metadata,
+        )
+        return GetByKeyResult(
+            entries=[
+                Entry(
+                    seq=e.seq,
+                    timestamp_ns=e.timestamp_ns,
+                    key=bytes(e.key),
+                    data=bytes(e.data),
+                    leaf_hash=bytes(e.leaf_hash),
+                )
+                for e in res.entries
+            ],
+            next_cursor=res.next_cursor,
+        )
 
     def list_entries(
         self,
