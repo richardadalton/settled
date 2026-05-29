@@ -22,24 +22,6 @@ A single client can flood the WAL. `GetLatest(n=1000)` returns 1000 entries with
 - Make the `GetLatest` cap configurable and return a `total_available` count so clients can paginate
 - Add request size limits beyond the existing 64 KB data limit
 
-### No `GetByKey` RPC
-The index CF maps `key → latest seq` so efficient key lookup exists in storage but is not exposed over the wire. The UI workaround is to scan all entries client-side.
-- Add `rpc GetByKey(GetByKeyRequest) returns (GetByKeyResponse)` to the proto
-- Support cursor-based pagination over all entries for a given key
-- Update all SDKs, the UI, and the demos
-
-### No pagination for the entry list
-`GetLatest` returns the N most-recent entries with no cursor. There is no way to page through historical entries except calling `Get(seq)` in a loop.
-- Add `rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse)` with `from_seq`/`to_seq` range and `limit`/`cursor` pagination
-- Update all SDKs
-
-### No streaming / watch RPC
-The UI implements live tailing via Server-Sent Events as a workaround. gRPC has streaming built in.
-- Add `rpc Watch(WatchRequest) returns (stream Entry)` to the proto
-- Implement in the server using a tokio `broadcast::channel`
-- Add `watchEntries()` to each SDK
-- Replace the SSE workaround in the UI server with a gRPC stream subscription
-
 ### No TLS support in the server binary
 The Dockerfile runs plain gRPC. The deployment docs say "add a sidecar proxy" but most cloud environments expect the binary to handle TLS directly.
 - Add `--tls-cert` / `--tls-key` flags to `settled-server`
