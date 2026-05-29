@@ -22,6 +22,7 @@ const (
 	SettledLog_Append_FullMethodName           = "/settled.v1.SettledLog/Append"
 	SettledLog_Get_FullMethodName              = "/settled.v1.SettledLog/Get"
 	SettledLog_GetLatest_FullMethodName        = "/settled.v1.SettledLog/GetLatest"
+	SettledLog_Watch_FullMethodName            = "/settled.v1.SettledLog/Watch"
 	SettledLog_ListEntries_FullMethodName      = "/settled.v1.SettledLog/ListEntries"
 	SettledLog_GetByKey_FullMethodName         = "/settled.v1.SettledLog/GetByKey"
 	SettledLog_GetSth_FullMethodName           = "/settled.v1.SettledLog/GetSth"
@@ -40,6 +41,10 @@ type SettledLogClient interface {
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResponse, error)
+	// Stream entries as they are appended. from_seq > 0 replays history first,
+	// then continues live. from_seq == 0 streams only future appends.
+	// The stream stays open until the client cancels it.
+	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Entry], error)
 	// Retrieve a seq-ordered page of entries within [from_seq, to_seq).
 	// cursor overrides from_seq for subsequent pages; next_cursor == 0 means done.
 	ListEntries(ctx context.Context, in *ListEntriesRequest, opts ...grpc.CallOption) (*ListEntriesResponse, error)
@@ -92,6 +97,25 @@ func (c *settledLogClient) GetLatest(ctx context.Context, in *GetLatestRequest, 
 	}
 	return out, nil
 }
+
+func (c *settledLogClient) Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Entry], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SettledLog_ServiceDesc.Streams[0], SettledLog_Watch_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WatchRequest, Entry]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SettledLog_WatchClient = grpc.ServerStreamingClient[Entry]
 
 func (c *settledLogClient) ListEntries(ctx context.Context, in *ListEntriesRequest, opts ...grpc.CallOption) (*ListEntriesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -154,6 +178,10 @@ type SettledLogServer interface {
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error)
+	// Stream entries as they are appended. from_seq > 0 replays history first,
+	// then continues live. from_seq == 0 streams only future appends.
+	// The stream stays open until the client cancels it.
+	Watch(*WatchRequest, grpc.ServerStreamingServer[Entry]) error
 	// Retrieve a seq-ordered page of entries within [from_seq, to_seq).
 	// cursor overrides from_seq for subsequent pages; next_cursor == 0 means done.
 	ListEntries(context.Context, *ListEntriesRequest) (*ListEntriesResponse, error)
@@ -185,6 +213,9 @@ func (UnimplementedSettledLogServer) Get(context.Context, *GetRequest) (*GetResp
 }
 func (UnimplementedSettledLogServer) GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLatest not implemented")
+}
+func (UnimplementedSettledLogServer) Watch(*WatchRequest, grpc.ServerStreamingServer[Entry]) error {
+	return status.Error(codes.Unimplemented, "method Watch not implemented")
 }
 func (UnimplementedSettledLogServer) ListEntries(context.Context, *ListEntriesRequest) (*ListEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEntries not implemented")
@@ -275,6 +306,17 @@ func _SettledLog_GetLatest_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _SettledLog_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SettledLogServer).Watch(m, &grpc.GenericServerStream[WatchRequest, Entry]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SettledLog_WatchServer = grpc.ServerStreamingServer[Entry]
 
 func _SettledLog_ListEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListEntriesRequest)
@@ -406,6 +448,12 @@ var SettledLog_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SettledLog_ConsistencyProof_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Watch",
+			Handler:       _SettledLog_Watch_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "settled.v1.proto",
 }

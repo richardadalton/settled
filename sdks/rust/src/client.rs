@@ -75,6 +75,23 @@ pub struct GetByKeyResult {
     pub next_cursor: u64,
 }
 
+/// A live stream of entries returned by `watch_entries`.
+///
+/// Call `.next().await` in a loop; returns `None` when the stream ends.
+pub struct EntryStream {
+    inner: tonic::Streaming<proto::Entry>,
+}
+
+impl EntryStream {
+    pub async fn next(&mut self) -> Option<Result<Entry, ClientError>> {
+        match self.inner.message().await {
+            Ok(Some(e)) => Some(Ok(from_pb_entry(e))),
+            Ok(None) => None,
+            Err(e) => Some(Err(ClientError::Rpc(e))),
+        }
+    }
+}
+
 fn from_pb_sth(s: proto::SignedTreeHead) -> SignedTreeHead {
     SignedTreeHead {
         tree_size: s.tree_size,
@@ -205,6 +222,22 @@ impl SettledClient {
             proof: r.proof,
             sth: from_pb_sth(r.sth.unwrap_or_default()),
         })
+    }
+
+    /// Open a server-streaming Watch RPC.
+    ///
+    /// `from_seq > 0`: replays entries starting at that seq, then continues live.
+    /// `from_seq == 0`: streams only entries appended after the call returns.
+    ///
+    /// Call `.next().await` on the returned [`EntryStream`] in a loop.
+    /// Returns `None` when the stream ends (server closed it or cancelled).
+    pub async fn watch_entries(&mut self, from_seq: u64) -> Result<EntryStream, ClientError> {
+        let stream = self
+            .inner
+            .watch(self.make_request(proto::WatchRequest { from_seq }))
+            .await?
+            .into_inner();
+        Ok(EntryStream { inner: stream })
     }
 
     /// Retrieve a page of entries in seq order within `[from_seq, to_seq)`.

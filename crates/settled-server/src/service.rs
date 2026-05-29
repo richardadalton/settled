@@ -1,5 +1,10 @@
+use std::pin::Pin;
+
 use settled_core::{hash::leaf_hash, proof};
 use settled_storage::SignedTreeHead;
+use tokio::sync::broadcast;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 
 use crate::error::Error;
@@ -8,7 +13,7 @@ use crate::proto::{
     AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse, Entry,
     GetByKeyRequest, GetByKeyResponse, GetLatestRequest, GetLatestResponse, GetRequest,
     GetResponse, GetSthRequest, GetSthResponse, InclusionProofRequest, InclusionProofResponse,
-    ListEntriesRequest, ListEntriesResponse, SignedTreeHead as ProtoSth,
+    ListEntriesRequest, ListEntriesResponse, SignedTreeHead as ProtoSth, WatchRequest,
 };
 use crate::state::AppState;
 
@@ -49,6 +54,7 @@ fn sth_to_proto(s: SignedTreeHead) -> ProtoSth {
 
 #[tonic::async_trait]
 impl SettledLog for SettledService {
+    type WatchStream = Pin<Box<dyn Stream<Item = Result<Entry, Status>> + Send + 'static>>;
     async fn append(
         &self,
         request: Request<AppendRequest>,
@@ -71,6 +77,15 @@ impl SettledLog for SettledService {
         crate::metrics::ENTRIES_APPENDED.inc();
 
         tracing::debug!(seq, "appended entry");
+
+        // Notify Watch subscribers. Ignore the error when there are no receivers.
+        let _ = self.state.watch_tx.send(Entry {
+            seq,
+            timestamp_ns,
+            key: req.key,
+            data: req.data,
+            leaf_hash: lh.to_vec(),
+        });
 
         Ok(Response::new(AppendResponse {
             seq,
@@ -125,6 +140,91 @@ impl SettledLog for SettledService {
             .collect();
 
         Ok(Response::new(GetLatestResponse { entries }))
+    }
+
+    async fn watch(
+        &self,
+        request: Request<WatchRequest>,
+    ) -> Result<Response<Self::WatchStream>, Status> {
+        let from_seq = request.into_inner().from_seq;
+
+        // Subscribe BEFORE reading history so we don't miss entries appended
+        // while the replay is in flight.
+        let mut watch_rx = self.state.watch_tx.subscribe();
+        let log = self.state.log.clone();
+
+        let (tx, rx) = tokio::sync::mpsc::channel::<Result<Entry, Status>>(128);
+
+        tokio::spawn(async move {
+            let mut last_sent: Option<u64> = None;
+
+            // Phase 1: replay history when from_seq > 0
+            if from_seq > 0 {
+                let mut cursor = from_seq;
+                'replay: loop {
+                    let log2 = log.clone();
+                    let result =
+                        tokio::task::spawn_blocking(move || log2.seq_range_paged(cursor, 0, 200))
+                            .await;
+                    let (entries, next) = match result {
+                        Ok(Ok(r)) => r,
+                        Ok(Err(e)) => {
+                            let _ = tx.send(Err(Status::internal(e.to_string()))).await;
+                            return;
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(Status::internal(e.to_string()))).await;
+                            return;
+                        }
+                    };
+                    for entry in entries {
+                        let seq = entry.seq;
+                        let proto_entry = Entry {
+                            seq: entry.seq,
+                            timestamp_ns: entry.timestamp_ns,
+                            key: entry.key,
+                            data: entry.data,
+                            leaf_hash: entry.leaf_hash.to_vec(),
+                        };
+                        if tx.send(Ok(proto_entry)).await.is_err() {
+                            return;
+                        }
+                        last_sent = Some(seq);
+                    }
+                    if next == 0 {
+                        break 'replay;
+                    }
+                    cursor = next;
+                }
+            }
+
+            // Phase 2: live stream, skipping entries already sent during replay
+            loop {
+                match watch_rx.recv().await {
+                    Ok(entry) => {
+                        if last_sent.map_or(false, |last| entry.seq <= last) {
+                            continue;
+                        }
+                        last_sent = Some(entry.seq);
+                        if tx.send(Ok(entry)).await.is_err() {
+                            return;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!(lagged = n, "Watch stream fell behind broadcast channel");
+                        let _ = tx
+                            .send(Err(Status::resource_exhausted(format!(
+                                "stream lagged by {n} entries; reconnect with last seen seq"
+                            ))))
+                            .await;
+                        return;
+                    }
+                    Err(broadcast::error::RecvError::Closed) => return,
+                }
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 
     async fn list_entries(

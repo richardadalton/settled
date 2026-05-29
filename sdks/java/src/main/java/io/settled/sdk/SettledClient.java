@@ -9,6 +9,7 @@ import settled.v1.SettledLogGrpc;
 import settled.v1.SettledV1;
 import settled.v1.SettledV1.*;
 
+import io.grpc.stub.StreamObserver;
 import java.io.Closeable;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -83,6 +84,28 @@ public final class SettledClient implements Closeable {
             Sth oldSth, Sth newSth) {}
 
     // ── API ───────────────────────────────────────────────────────────────────
+
+    /**
+     * Stream entries via a server-side Watch RPC (async stub).
+     * fromSeq &gt; 0 replays history from that seq then continues live.
+     * fromSeq == 0 streams only entries appended after the call.
+     * Results are delivered to {@code observer.onNext}; the stream ends via
+     * {@code observer.onCompleted} or {@code observer.onError}.
+     */
+    public void watchEntries(long fromSeq, StreamObserver<Entry> observer) {
+        SettledLogGrpc.newStub(channel).watch(
+                WatchRequest.newBuilder().setFromSeq(fromSeq).build(),
+                new io.grpc.stub.StreamObserver<SettledV1.Entry>() {
+                    @Override public void onNext(SettledV1.Entry e) {
+                        observer.onNext(new Entry(
+                                e.getSeq(), e.getTimestampNs(),
+                                e.getKey().toByteArray(), e.getData().toByteArray(),
+                                e.getLeafHash().toByteArray()));
+                    }
+                    @Override public void onError(Throwable t) { observer.onError(t); }
+                    @Override public void onCompleted() { observer.onCompleted(); }
+                });
+    }
 
     public AppendResult append(byte[] key, byte[] data) {
         AppendResponse r = stub.append(

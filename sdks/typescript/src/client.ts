@@ -203,6 +203,75 @@ export class SettledClient {
   }
 
   /**
+   * Open a server-streaming Watch RPC.
+   *
+   * `fromSeq > 0n`: replays entries from that seq, then continues live.
+   * `fromSeq == 0n` (default): streams only entries appended after the call.
+   *
+   * Returns an `AsyncIterable<Entry>` — use `for await...of` to consume it.
+   * Call `.return()` on the iterator (or break from the loop) to cancel.
+   */
+  watchEntries(fromSeq: bigint = 0n): AsyncIterable<Entry> {
+    const call = (this.stub as unknown as Record<string, Function>)['watch'](
+      { from_seq: fromSeq.toString() },
+      this.metadata,
+    ) as import('events').EventEmitter & { cancel(): void };
+
+    return {
+      [Symbol.asyncIterator](): AsyncIterator<Entry> {
+        type Waiter = (v: IteratorResult<Entry>) => void;
+        const queue: Array<Entry | Error | null> = [];
+        let waiter: Waiter | null = null;
+
+        const push = (item: Entry | Error | null) => {
+          if (waiter) {
+            const w = waiter;
+            waiter = null;
+            if (item === null) w({ done: true, value: undefined as unknown as Entry });
+            else if (item instanceof Error) w(Promise.reject(item) as unknown as IteratorResult<Entry>);
+            else w({ done: false, value: item });
+          } else {
+            queue.push(item);
+          }
+        };
+
+        call.on('data', (raw: Record<string, unknown>) => {
+          push({
+            seq: toBigInt(raw['seq']),
+            timestampNs: toBigInt(raw['timestamp_ns']),
+            key: toBytes(raw['key']),
+            data: toBytes(raw['data']),
+            leafHash: toBytes(raw['leaf_hash']),
+          });
+        });
+        call.on('end', () => push(null));
+        call.on('error', (err: Error) => push(err));
+
+        return {
+          next(): Promise<IteratorResult<Entry>> {
+            if (queue.length > 0) {
+              const item = queue.shift()!;
+              if (item === null) return Promise.resolve({ done: true, value: undefined as unknown as Entry });
+              if (item instanceof Error) return Promise.reject(item);
+              return Promise.resolve({ done: false, value: item });
+            }
+            return new Promise<IteratorResult<Entry>>((resolve, reject) => {
+              waiter = (v) => {
+                if (v instanceof Promise) v.then(resolve, reject);
+                else resolve(v);
+              };
+            });
+          },
+          return(): Promise<IteratorResult<Entry>> {
+            call.cancel();
+            return Promise.resolve({ done: true, value: undefined as unknown as Entry });
+          },
+        };
+      },
+    };
+  }
+
+  /**
    * Retrieve a page of entries in seq order within `[fromSeq, toSeq)`.
    * `toSeq = 0n` scans to the end of the log. Pass `cursor = 0n` to start
    * from `fromSeq`; pass `nextCursor` from the previous response to page.

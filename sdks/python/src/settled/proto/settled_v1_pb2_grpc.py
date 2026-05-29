@@ -51,6 +51,11 @@ class SettledLogStub(object):
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
                 response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
                 _registered_method=True)
+        self.Watch = channel.unary_stream(
+                '/settled.v1.SettledLog/Watch',
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.WatchRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.Entry.FromString,
+                _registered_method=True)
         self.ListEntries = channel.unary_unary(
                 '/settled.v1.SettledLog/ListEntries',
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.ListEntriesRequest.SerializeToString,
@@ -100,6 +105,15 @@ class SettledLogServicer(object):
     def GetLatest(self, request, context):
         """Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
         Returns durably-stored entries; they may not yet be sealed in the latest STH.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Watch(self, request, context):
+        """Stream entries as they are appended. from_seq > 0 replays history first,
+        then continues live. from_seq == 0 streams only future appends.
+        The stream stays open until the client cancels it.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -160,6 +174,11 @@ def add_SettledLogServicer_to_server(servicer, server):
                     servicer.GetLatest,
                     request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.FromString,
                     response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.SerializeToString,
+            ),
+            'Watch': grpc.unary_stream_rpc_method_handler(
+                    servicer.Watch,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.WatchRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.Entry.SerializeToString,
             ),
             'ListEntries': grpc.unary_unary_rpc_method_handler(
                     servicer.ListEntries,
@@ -270,6 +289,33 @@ class SettledLog(object):
             '/settled.v1.SettledLog/GetLatest',
             settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
             settled_dot_proto_dot_settled__v1__pb2.GetLatestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Watch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/settled.v1.SettledLog/Watch',
+            settled_dot_proto_dot_settled__v1__pb2.WatchRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.Entry.FromString,
             options,
             channel_credentials,
             insecure,

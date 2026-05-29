@@ -10,7 +10,7 @@ from __future__ import annotations
 import grpc
 
 from dataclasses import dataclass
-from typing import AsyncIterator, Iterator
+from typing import AsyncIterator, Iterator, Generator
 
 
 @dataclass
@@ -139,6 +139,29 @@ class SettledClient:
             )
             for e in res.entries
         ]
+
+    def watch_entries(self, from_seq: int = 0) -> Generator[Entry, None, None]:
+        """Stream entries via a server-side Watch RPC.
+
+        ``from_seq > 0``: replays entries starting at that seq, then streams
+        live ones.  ``from_seq == 0`` (default): yields only entries appended
+        after the call is made.
+
+        The generator blocks on each ``next()`` call until an entry arrives or
+        the stream ends. Cancel by calling ``.close()`` on the generator.
+        """
+        from settled.proto import settled_v1_pb2  # type: ignore[import]
+        for e in self._stub.Watch(
+            settled_v1_pb2.WatchRequest(from_seq=from_seq),
+            metadata=self._metadata,
+        ):
+            yield Entry(
+                seq=e.seq,
+                timestamp_ns=e.timestamp_ns,
+                key=bytes(e.key),
+                data=bytes(e.data),
+                leaf_hash=bytes(e.leaf_hash),
+            )
 
     def get_by_key(
         self,

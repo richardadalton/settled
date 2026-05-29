@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Grpc.Core;
 using Grpc.Net.Client;
 using Settled.V1;
 
@@ -83,6 +85,23 @@ public sealed class SettledClient : IDisposable
     {
         var res = await _stub.GetAsync(new GetRequest { Seq = seq }, headers: _headers, cancellationToken: ct);
         return MapEntry(res.Entry);
+    }
+
+    /// <summary>
+    /// Stream entries via a server-side Watch RPC.
+    /// fromSeq &gt; 0 replays history from that seq then continues live.
+    /// fromSeq == 0 (default) streams only entries appended after the call.
+    /// </summary>
+    public async IAsyncEnumerable<Entry> WatchEntriesAsync(
+        ulong fromSeq = 0,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var call = _stub.Watch(
+            new WatchRequest { FromSeq = fromSeq },
+            headers: _headers,
+            cancellationToken: ct);
+        await foreach (var e in call.ResponseStream.ReadAllAsync(ct))
+            yield return MapEntry(e);
     }
 
     /// <summary>

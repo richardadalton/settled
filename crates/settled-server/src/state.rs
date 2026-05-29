@@ -2,13 +2,19 @@ use std::sync::{Arc, Mutex};
 
 use settled_core::merkle::MerkleTree;
 use settled_storage::{Db, HeadStore, KeyRecord, KeyStore, LogStore, TreeStore};
+use tokio::sync::broadcast;
 
 use crate::config::Config;
+use crate::proto::Entry as ProtoEntry;
 use crate::signer::{LocalSigner, Signer};
 
 pub struct AppendState {
     pub merkle: MerkleTree,
 }
+
+/// Capacity of the watch broadcast channel.  Slow subscribers that fall
+/// more than this many entries behind will receive `RecvError::Lagged`.
+const WATCH_CHANNEL_CAP: usize = 1024;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -20,6 +26,9 @@ pub struct AppState {
     pub append_mu: Arc<Mutex<AppendState>>,
     pub signer: Arc<LocalSigner>,
     pub config: Config,
+    /// Broadcast channel: every successful Append sends the new entry here.
+    /// Watch RPCs subscribe to receive a live stream.
+    pub watch_tx: Arc<broadcast::Sender<ProtoEntry>>,
 }
 
 impl AppState {
@@ -66,6 +75,8 @@ impl AppState {
             tracing::info!("Seeded CF_KEYS with version-1 public key");
         }
 
+        let (watch_tx, _) = broadcast::channel(WATCH_CHANNEL_CAP);
+
         Ok(AppState {
             log: db.log_store(),
             tree: db.tree_store(),
@@ -74,6 +85,7 @@ impl AppState {
             append_mu: Arc::new(Mutex::new(AppendState { merkle })),
             signer,
             config,
+            watch_tx: Arc::new(watch_tx),
         })
     }
 }

@@ -196,6 +196,46 @@ func (c *SettledClient) ConsistencyProof(ctx context.Context, oldSize, newSize u
 	}, nil
 }
 
+// WatchEntries opens a server-streaming Watch RPC and returns a channel that
+// receives entries as they arrive.  fromSeq > 0 replays history first;
+// fromSeq == 0 streams only entries appended after the call.
+// The goroutine exits (closing ch and errc) when the context is cancelled,
+// the server closes the stream, or an error occurs.
+func (c *SettledClient) WatchEntries(ctx context.Context, fromSeq uint64) (<-chan Entry, <-chan error) {
+	ch := make(chan Entry, 64)
+	errc := make(chan error, 1)
+	go func() {
+		defer close(ch)
+		defer close(errc)
+		stream, err := c.stub.Watch(ctx, &pb.WatchRequest{FromSeq: fromSeq})
+		if err != nil {
+			errc <- err
+			return
+		}
+		for {
+			e, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					errc <- err
+				}
+				return
+			}
+			select {
+			case ch <- Entry{
+				Seq:         e.Seq,
+				TimestampNs: e.TimestampNs,
+				Key:         e.Key,
+				Data:        e.Data,
+				LeafHash:    e.LeafHash,
+			}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return ch, errc
+}
+
 // ListEntriesResult is returned from ListEntries.
 type ListEntriesResult struct {
 	Entries    []Entry

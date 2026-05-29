@@ -1,89 +1,77 @@
 import { Router, Request, Response } from 'express';
-import { rpc, GrpcGetSthResponse, GrpcGetResponse } from '../grpc.js';
-import { entryCache } from '../cache.js';
+import { stub } from '../grpc.js';
+import type { GrpcEntry } from '../grpc.js';
 
 export const eventsRouter = Router();
 
-const POLL_INTERVAL_MS = 10_000;
 const PING_INTERVAL_MS = 15_000;
+const RECONNECT_DELAY_MS = 5_000;
 
-function serializeSth(sth: GrpcGetSthResponse['sth']) {
+// ── SSE helpers ───────────────────────────────────────────────────────────────
+
+function send(res: Response, event: string, data: unknown): void {
+  try {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch {
+    // ignore write errors on closed connections
+  }
+}
+
+function serializeEntry(raw: Record<string, unknown>) {
   return {
-    tree_size:    Number(sth.tree_size),
-    root_hash:    Buffer.from(sth.root_hash).toString('hex'),
-    timestamp_ns: String(sth.timestamp_ns),
-    signature:    Buffer.from(sth.signature).toString('hex'),
-    public_key:   Buffer.from(sth.public_key).toString('hex'),
-    key_version:  sth.key_version,
+    seq:          Number(raw['seq']),
+    key:          Buffer.from(raw['key'] as Buffer).toString(),
+    data:         Buffer.from(raw['data'] as Buffer).toString(),
+    timestamp_ns: String(raw['timestamp_ns']),
+    leaf_hash:    Buffer.from(raw['leaf_hash'] as Buffer).toString('hex'),
   };
 }
 
-function send(res: Response, event: string, data: unknown) {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+// ── Shared Watch subscription ────────────────────────────────────────────────
+// One gRPC Watch stream feeds all active SSE connections.
+
+const sseClients = new Set<Response>();
+
+function broadcast(event: string, data: unknown): void {
+  for (const res of sseClients) send(res, event, data);
 }
 
-eventsRouter.get('/', async (req: Request, res: Response) => {
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function startWatch(): void {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+
+  const call = (stub as unknown as Record<string, Function>)['watch'](
+    { from_seq: '0' },
+  ) as import('events').EventEmitter & { cancel(): void };
+
+  call.on('data', (raw: Record<string, unknown>) => {
+    broadcast('entry', serializeEntry(raw));
+  });
+
+  const scheduleReconnect = () => {
+    reconnectTimer = setTimeout(startWatch, RECONNECT_DELAY_MS);
+  };
+  call.on('error', scheduleReconnect);
+  call.on('end',   scheduleReconnect);
+}
+
+startWatch();
+
+// ── SSE endpoint ─────────────────────────────────────────────────────────────
+
+eventsRouter.get('/', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  let knownSize = 0;
-  let alive = true;
-
-  const ping = setInterval(() => {
-    if (alive) send(res, 'ping', {});
-  }, PING_INTERVAL_MS);
-
-  async function poll() {
-    if (!alive) return;
-    try {
-      const sthResult = await rpc<GrpcGetSthResponse>('getSth', { tree_size: '0' });
-      const sth = sthResult.sth;
-      const newSize = Number(sth.tree_size);
-
-      if (newSize !== knownSize) {
-        send(res, 'sth', serializeSth(sth));
-
-        // Fetch and emit each new entry, capped at 200 per poll to avoid flooding
-        const fetchFrom = knownSize;
-        const fetchTo   = Math.min(newSize, fetchFrom + 200);
-        for (let seq = fetchFrom; seq < fetchTo; seq++) {
-          if (!alive) break;
-          try {
-            const cacheKey = String(seq);
-            let entry = entryCache.get(cacheKey);
-            if (!entry) {
-              const r = await rpc<GrpcGetResponse>('get', { seq: cacheKey });
-              entry = {
-                seq:          Number(r.entry.seq),
-                key:          Buffer.from(r.entry.key).toString(),
-                data:         Buffer.from(r.entry.data).toString(),
-                timestamp_ns: String(r.entry.timestamp_ns),
-                leaf_hash:    Buffer.from(r.entry.leaf_hash).toString('hex'),
-              };
-              entryCache.set(cacheKey, entry);
-            }
-            send(res, 'entry', entry);
-          } catch {
-            // individual entry fetch failure is non-fatal
-          }
-        }
-        knownSize = newSize;
-      }
-    } catch {
-      // gRPC unavailable — will retry next poll
-    }
-
-    if (alive) setTimeout(poll, POLL_INTERVAL_MS);
-  }
+  const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch { /* ignore */ } }, PING_INTERVAL_MS);
+  sseClients.add(res);
 
   req.on('close', () => {
-    alive = false;
+    sseClients.delete(res);
     clearInterval(ping);
   });
-
-  // Initial poll immediately
-  poll();
 });
