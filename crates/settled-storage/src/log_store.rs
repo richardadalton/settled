@@ -286,9 +286,9 @@ mod tests {
         let log = db.log_store();
         // alice: seqs 0, 2, 4   bob: seqs 1, 3
         log.append(b"alice", b"a0").unwrap();
-        log.append(b"bob",   b"b1").unwrap();
+        log.append(b"bob", b"b1").unwrap();
         log.append(b"alice", b"a2").unwrap();
-        log.append(b"bob",   b"b3").unwrap();
+        log.append(b"bob", b"b3").unwrap();
         log.append(b"alice", b"a4").unwrap();
 
         // Fetch all alice entries in one page

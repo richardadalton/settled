@@ -132,18 +132,20 @@ impl SettledLog for SettledService {
                 "key must not be empty".into(),
             )));
         }
-        let limit =
-            if req.limit == 0 { DEFAULT_BY_KEY } else { req.limit.min(MAX_BY_KEY) } as usize;
+        let limit = if req.limit == 0 {
+            DEFAULT_BY_KEY
+        } else {
+            req.limit.min(MAX_BY_KEY)
+        } as usize;
 
         let key = req.key;
         let from_seq = req.cursor;
         let log = self.state.log.clone();
-        let (entries, next_cursor) = tokio::task::spawn_blocking(move || {
-            log.entries_by_key(&key, from_seq, limit)
-        })
-        .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .map_err(|e| Status::from(Error::Storage(e)))?;
+        let (entries, next_cursor) =
+            tokio::task::spawn_blocking(move || log.entries_by_key(&key, from_seq, limit))
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?
+                .map_err(|e| Status::from(Error::Storage(e)))?;
 
         let entries = entries
             .into_iter()
