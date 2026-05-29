@@ -72,6 +72,45 @@ impl LogStore {
         }
     }
 
+    /// Scan the log forward from `from_seq` and return up to `limit` entries
+    /// whose key exactly matches `key`.  Returns `(entries, next_cursor)` where
+    /// `next_cursor` is the seq to pass on the next call (0 = no more entries).
+    pub fn entries_by_key(
+        &self,
+        key: &[u8],
+        from_seq: u64,
+        limit: usize,
+    ) -> Result<(Vec<LogEntry>, u64)> {
+        if limit == 0 {
+            return Ok((Vec::new(), 0));
+        }
+        let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
+        let start_bytes = from_seq.to_be_bytes();
+        let iter = self
+            .0
+            .db
+            .iterator_cf(cf, IteratorMode::From(&start_bytes, Direction::Forward));
+        let mut entries = Vec::with_capacity(limit);
+        let mut next_cursor = 0u64;
+        for item in iter {
+            let (k, v) = item?;
+            let seq = u64::from_be_bytes(
+                k.as_ref()
+                    .try_into()
+                    .map_err(|_| Error::Corruption("bad seq key length".into()))?,
+            );
+            let proto = LogEntryProto::decode(v.as_ref())?;
+            if proto.key == key {
+                entries.push(LogEntry::try_from(proto)?);
+                if entries.len() >= limit {
+                    next_cursor = seq + 1;
+                    break;
+                }
+            }
+        }
+        Ok((entries, next_cursor))
+    }
+
     /// Returns all entries with seq in `[start, end)`.
     pub fn seq_range(&self, start: u64, end: u64) -> Result<Vec<LogEntry>> {
         let cf = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
@@ -239,6 +278,39 @@ mod tests {
         assert_eq!(entries.len(), 3);
         assert_eq!(entries[0].seq, 2);
         assert_eq!(entries[2].seq, 0);
+    }
+
+    #[test]
+    fn entries_by_key_exact_match_and_pagination() {
+        let (_dir, db) = open_fresh();
+        let log = db.log_store();
+        // alice: seqs 0, 2, 4   bob: seqs 1, 3
+        log.append(b"alice", b"a0").unwrap();
+        log.append(b"bob",   b"b1").unwrap();
+        log.append(b"alice", b"a2").unwrap();
+        log.append(b"bob",   b"b3").unwrap();
+        log.append(b"alice", b"a4").unwrap();
+
+        // Fetch all alice entries in one page
+        let (entries, next) = log.entries_by_key(b"alice", 0, 10).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].seq, 0);
+        assert_eq!(entries[1].seq, 2);
+        assert_eq!(entries[2].seq, 4);
+        assert_eq!(next, 0);
+
+        // Paginate with limit=2
+        let (page1, next1) = log.entries_by_key(b"alice", 0, 2).unwrap();
+        assert_eq!(page1.len(), 2);
+        assert!(next1 > 0);
+        let (page2, next2) = log.entries_by_key(b"alice", next1, 2).unwrap();
+        assert_eq!(page2.len(), 1);
+        assert_eq!(next2, 0);
+
+        // No match for unknown key
+        let (none, next) = log.entries_by_key(b"charlie", 0, 10).unwrap();
+        assert!(none.is_empty());
+        assert_eq!(next, 0);
     }
 
     #[test]

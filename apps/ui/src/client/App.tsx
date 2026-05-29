@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { SthHeader } from './components/SthHeader.js';
 import { FilterBar } from './components/FilterBar.js';
 import { EntryList } from './components/EntryList.js';
@@ -29,6 +29,17 @@ export function App() {
     onEntry: handleEntry,
     onSth:   handleSth,
   });
+
+  // When filters.key stabilises (300 ms debounce), switch between key-lookup
+  // mode and normal seq-range mode.
+  const prevKey = useRef('');
+  useEffect(() => {
+    if (filters.key === prevKey.current) return;
+    prevKey.current = filters.key;
+    if (!filters.key) return;
+    const t = setTimeout(() => { pauseLiveTail(); actions.loadByKey(filters.key); }, 300);
+    return () => clearTimeout(t);
+  }, [filters.key, actions, pauseLiveTail]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

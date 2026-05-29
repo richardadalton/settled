@@ -20,6 +20,11 @@ export type EntriesResponse = {
   tree_size: number;
 };
 
+export type EntriesByKeyResponse = {
+  entries:     Entry[];
+  next_cursor: string;  // '0' means no more pages
+};
+
 export type InclusionProof = {
   leaf_index: number;
   tree_size:  number;

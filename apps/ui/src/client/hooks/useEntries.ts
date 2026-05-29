@@ -4,6 +4,10 @@ import type { Entry } from '../types.js';
 
 const PAGE = 100;
 
+type KeyMode =
+  | { active: false }
+  | { active: true; key: string; nextCursor: string };
+
 export type EntriesState = {
   entries:   Entry[];
   treeSize:  number;
@@ -11,6 +15,7 @@ export type EntriesState = {
   error:     string | null;
   hasOlder:  boolean;
   hasNewer:  boolean;
+  isKeyMode: boolean;
 };
 
 export type EntriesActions = {
@@ -21,6 +26,7 @@ export type EntriesActions = {
   jumpFirst:   () => void;
   appendLive:  (entry: Entry) => void;
   setTreeSize: (n: number) => void;
+  loadByKey:   (key: string) => void;
 };
 
 export function useEntries(): [EntriesState, EntriesActions] {
@@ -32,9 +38,13 @@ export function useEntries(): [EntriesState, EntriesActions] {
   // Track the range of seqs currently loaded
   const minSeq = useRef<number | null>(null);
   const maxSeq = useRef<number | null>(null);
+  const keyMode = useRef<KeyMode>({ active: false });
 
-  const hasOlder = minSeq.current !== null && minSeq.current > 0;
-  const hasNewer = maxSeq.current !== null && treeSize > 0 && maxSeq.current < treeSize - 1;
+  const hasOlder = !keyMode.current.active && minSeq.current !== null && minSeq.current > 0;
+  const hasNewer = keyMode.current.active
+    ? keyMode.current.nextCursor !== '0'
+    : maxSeq.current !== null && treeSize > 0 && maxSeq.current < treeSize - 1;
+  const isKeyMode = keyMode.current.active;
 
   const load = useCallback(async (from: number, dir: 'asc' | 'desc', replace: boolean) => {
     setLoading(true);
@@ -65,28 +75,44 @@ export function useEntries(): [EntriesState, EntriesActions] {
   }, []);
 
   const seekTo = useCallback((seq: number) => {
+    keyMode.current = { active: false };
     minSeq.current = null;
     maxSeq.current = null;
-    // Load a window centred on seq: fetch PAGE/2 before and PAGE/2 after
     const from = Math.max(0, seq - Math.floor(PAGE / 2));
     load(from, 'asc', true);
   }, [load]);
 
   const loadOlder = useCallback(() => {
+    if (keyMode.current.active) return;
     if (minSeq.current === null || minSeq.current === 0) return;
     const from = Math.max(0, minSeq.current - PAGE);
     load(from, 'asc', false);
   }, [load]);
 
   const loadNewer = useCallback(() => {
+    if (keyMode.current.active) {
+      const km = keyMode.current;
+      if (km.nextCursor === '0') return;
+      setLoading(true);
+      setError(null);
+      api.entriesByKey(km.key, km.nextCursor).then(res => {
+        keyMode.current = { active: true, key: km.key, nextCursor: res.next_cursor };
+        setEntries(prev => {
+          const merged = [...prev, ...res.entries];
+          return Array.from(new Map(merged.map(e => [e.seq, e])).values())
+            .sort((a, b) => a.seq - b.seq);
+        });
+      }).catch(e => setError(String(e))).finally(() => setLoading(false));
+      return;
+    }
     if (maxSeq.current === null) return;
     load(maxSeq.current + 1, 'asc', false);
   }, [load]);
 
   const jumpLatest = useCallback(() => {
+    keyMode.current = { active: false };
     minSeq.current = null;
     maxSeq.current = null;
-    // Start from the last PAGE entries
     api.sth().then(sth => {
       const from = Math.max(0, sth.tree_size - PAGE);
       setTreeSize(sth.tree_size);
@@ -95,12 +121,14 @@ export function useEntries(): [EntriesState, EntriesActions] {
   }, [load]);
 
   const jumpFirst = useCallback(() => {
+    keyMode.current = { active: false };
     minSeq.current = null;
     maxSeq.current = null;
     load(0, 'asc', true);
   }, [load]);
 
   const appendLive = useCallback((entry: Entry) => {
+    if (keyMode.current.active) return;
     setEntries(prev => {
       if (prev.some(e => e.seq === entry.seq)) return prev;
       const next = [...prev, entry].sort((a, b) => a.seq - b.seq);
@@ -111,8 +139,21 @@ export function useEntries(): [EntriesState, EntriesActions] {
     setTreeSize(t => Math.max(t, entry.seq + 1));
   }, []);
 
+  const loadByKey = useCallback((key: string) => {
+    keyMode.current = { active: true, key, nextCursor: '0' };
+    minSeq.current = null;
+    maxSeq.current = null;
+    setLoading(true);
+    setError(null);
+    setEntries([]);
+    api.entriesByKey(key, '0').then(res => {
+      keyMode.current = { active: true, key, nextCursor: res.next_cursor };
+      setEntries(res.entries);
+    }).catch(e => setError(String(e))).finally(() => setLoading(false));
+  }, []);
+
   return [
-    { entries, treeSize, loading, error, hasOlder, hasNewer },
-    { seekTo, loadOlder, loadNewer, jumpLatest, jumpFirst, appendLive, setTreeSize },
+    { entries, treeSize, loading, error, hasOlder, hasNewer, isKeyMode },
+    { seekTo, loadOlder, loadNewer, jumpLatest, jumpFirst, appendLive, setTreeSize, loadByKey },
   ];
 }

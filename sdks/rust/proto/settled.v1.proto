@@ -115,6 +115,22 @@ message ConsistencyProofResponse {
   SignedTreeHead new_sth = 5;
 }
 
+// ── Get By Key ───────────────────────────────────────────────────────────────
+
+message GetByKeyRequest {
+  bytes  key    = 1;
+  // Resume from this sequence number (inclusive). 0 = start from the beginning.
+  uint64 cursor = 2;
+  // Maximum entries to return per page. 0 treated as 50; capped at 1000.
+  uint32 limit  = 3;
+}
+
+message GetByKeyResponse {
+  repeated Entry entries     = 1;
+  // Seq to pass as cursor in the next request. 0 means no more entries.
+  uint64         next_cursor = 2;
+}
+
 // ── Service ──────────────────────────────────────────────────────────────────
 
 service SettledLog {
@@ -127,6 +143,11 @@ service SettledLog {
   // Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
   // Returns durably-stored entries; they may not yet be sealed in the latest STH.
   rpc GetLatest(GetLatestRequest) returns (GetLatestResponse);
+
+  // Retrieve all entries for a given key, newest-to-oldest within the log, with
+  // cursor-based pagination. cursor == 0 starts from the beginning of the log.
+  // next_cursor == 0 in the response means no further pages exist.
+  rpc GetByKey(GetByKeyRequest) returns (GetByKeyResponse);
 
   // Retrieve a Signed Tree Head. tree_size == 0 returns the latest.
   rpc GetSth(GetSthRequest) returns (GetSthResponse);

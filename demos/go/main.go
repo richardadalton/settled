@@ -8,6 +8,7 @@
  *   go run . -verify -consistency         # also verify consistency before→after append
  *   go run . -get 3                       # look up a single entry by seq
  *   go run . -get 3 -verify               # look up + verify its inclusion proof
+ *   go run . -key "user:alice"            # fetch all entries for a key (paginated)
  *   go run . -watch                       # tail new entries as they arrive
  *   go run . -watch -verify               # tail + verify each new entry
  *   go run . -host localhost:50051        # connect to a non-default address
@@ -43,6 +44,7 @@ func main() {
 	doVerify      := flag.Bool("verify", false, "Verify STH signature and inclusion proofs")
 	doConsistency := flag.Bool("consistency", false, "Also verify consistency proof before→after append (requires -verify)")
 	getSeq        := flag.Int64("get", -1, "Fetch a single entry by sequence number")
+	keyFlag       := flag.String("key", "", "Fetch all entries for this key (paginated)")
 	doWatch       := flag.Bool("watch", false, "Tail new entries as they arrive")
 	interval      := flag.Float64("interval", 2.0, "Polling interval in seconds for -watch")
 	flag.Parse()
@@ -62,6 +64,8 @@ func main() {
 		modeWatch(ctx, c, *doVerify, *interval)
 	case *getSeq >= 0:
 		modeGet(ctx, c, uint64(*getSeq), *doVerify)
+	case *keyFlag != "":
+		modeGetByKey(ctx, c, *keyFlag)
 	default:
 		modeDefault(ctx, c, *doVerify, *doConsistency, *skipAppend)
 	}
@@ -296,6 +300,36 @@ func modeWatch(ctx context.Context, c *client.SettledClient, doVerify bool, inte
 				seq++
 			}
 		}
+	}
+}
+
+func modeGetByKey(ctx context.Context, c *client.SettledClient, key string) {
+	var all []client.Entry
+	var cursor uint64
+	for {
+		res, err := c.GetByKey(ctx, []byte(key), cursor, 0)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return
+		}
+		all = append(all, res.Entries...)
+		if res.NextCursor == 0 {
+			break
+		}
+		cursor = res.NextCursor
+	}
+
+	noun := "entries"
+	if len(all) == 1 {
+		noun = "entry"
+	}
+	fmt.Printf("%d %s for key %q:\n\n", len(all), noun, key)
+
+	hdr := tableHeader(false)
+	fmt.Println(hdr)
+	fmt.Println(strings.Repeat("-", len(hdr)))
+	for _, e := range all {
+		fmt.Println(entryRow(e, ""))
 	}
 }
 

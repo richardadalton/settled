@@ -10,7 +10,7 @@ name = "settled-demo"
 path = "src/main.rs"
 
 [dependencies]
-settled-sdk = "0.1"
+settled-sdk = { path = "../../sdks/rust" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal"] }
 clap = { version = "4", features = ["derive"] }
 hex = "0.4"

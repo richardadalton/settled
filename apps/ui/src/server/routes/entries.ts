@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { rpc, GrpcGetResponse, GrpcGetSthResponse } from '../grpc.js';
+import { rpc, GrpcGetResponse, GrpcGetSthResponse, GrpcGetByKeyResponse } from '../grpc.js';
 import { entryCache } from '../cache.js';
 
 export const entriesRouter = Router();
@@ -52,6 +52,26 @@ entriesRouter.get('/', async (req, res) => {
 
   const entries = await Promise.all(seqs.map(fetchEntry));
   res.json({ entries, tree_size: treeSize });
+});
+
+// GET /api/entries/by-key?key=X&cursor=N&limit=M
+entriesRouter.get('/by-key', async (req, res) => {
+  const key = req.query['key'] as string | undefined;
+  if (!key) {
+    res.status(400).json({ error: 'key query parameter is required' });
+    return;
+  }
+  const cursor = String(req.query['cursor'] ?? '0');
+  const limit  = Math.min(Number(req.query['limit'] ?? 50), MAX_LIMIT);
+
+  const result = await rpc<GrpcGetByKeyResponse>('getByKey', {
+    key: Buffer.from(key),
+    cursor,
+    limit,
+  });
+
+  const entries = result.entries.map(serializeEntry);
+  res.json({ entries, next_cursor: String(result.next_cursor) });
 });
 
 // GET /api/entries/:seq

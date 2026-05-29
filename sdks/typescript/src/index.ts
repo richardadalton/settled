@@ -2,6 +2,7 @@ export type {
   AppendResult,
   ConsistencyProofResult,
   Entry,
+  GetByKeyResult,
   InclusionProofResult,
   SignedTreeHead,
 } from './types.js';

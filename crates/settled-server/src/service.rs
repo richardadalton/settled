@@ -6,14 +6,20 @@ use crate::error::Error;
 use crate::proto::settled_log_server::SettledLog;
 use crate::proto::{
     AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse, Entry,
-    GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest, GetSthResponse,
-    InclusionProofRequest, InclusionProofResponse, SignedTreeHead as ProtoSth,
+    GetByKeyRequest, GetByKeyResponse, GetLatestRequest, GetLatestResponse, GetRequest,
+    GetResponse, GetSthRequest, GetSthResponse, InclusionProofRequest, InclusionProofResponse,
+    SignedTreeHead as ProtoSth,
 };
 use crate::state::AppState;
 
 /// Maximum number of entries returnable by a single GetLatest call.
 /// Larger values are silently clamped to this cap.
 const MAX_LATEST: u32 = 1000;
+
+/// Maximum number of entries returnable by a single GetByKey call.
+const MAX_BY_KEY: u32 = 1000;
+/// Default page size for GetByKey when limit == 0.
+const DEFAULT_BY_KEY: u32 = 50;
 
 pub struct SettledService {
     state: AppState,
@@ -114,6 +120,46 @@ impl SettledLog for SettledService {
             .collect();
 
         Ok(Response::new(GetLatestResponse { entries }))
+    }
+
+    async fn get_by_key(
+        &self,
+        request: Request<GetByKeyRequest>,
+    ) -> Result<Response<GetByKeyResponse>, Status> {
+        let req = request.into_inner();
+        if req.key.is_empty() {
+            return Err(Status::from(Error::InvalidArgument(
+                "key must not be empty".into(),
+            )));
+        }
+        let limit =
+            if req.limit == 0 { DEFAULT_BY_KEY } else { req.limit.min(MAX_BY_KEY) } as usize;
+
+        let key = req.key;
+        let from_seq = req.cursor;
+        let log = self.state.log.clone();
+        let (entries, next_cursor) = tokio::task::spawn_blocking(move || {
+            log.entries_by_key(&key, from_seq, limit)
+        })
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .map_err(|e| Status::from(Error::Storage(e)))?;
+
+        let entries = entries
+            .into_iter()
+            .map(|e| Entry {
+                seq: e.seq,
+                timestamp_ns: e.timestamp_ns,
+                key: e.key,
+                data: e.data,
+                leaf_hash: e.leaf_hash.to_vec(),
+            })
+            .collect();
+
+        Ok(Response::new(GetByKeyResponse {
+            entries,
+            next_cursor,
+        }))
     }
 
     async fn get_sth(

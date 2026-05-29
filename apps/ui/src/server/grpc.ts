@@ -66,3 +66,7 @@ export type GrpcConsistencyResponse = {
   old_sth: GrpcSth;
   new_sth: GrpcSth;
 };
+export type GrpcGetByKeyResponse = {
+  entries: GrpcEntry[];
+  next_cursor: string;
+};

@@ -196,6 +196,33 @@ func (c *SettledClient) ConsistencyProof(ctx context.Context, oldSize, newSize u
 	}, nil
 }
 
+// GetByKeyResult is returned from GetByKey.
+type GetByKeyResult struct {
+	Entries    []Entry
+	NextCursor uint64
+}
+
+// GetByKey retrieves all entries for a given key with cursor-based pagination.
+// Pass cursor=0 to start from the beginning; limit=0 uses the server default (50).
+// NextCursor=0 in the result means no further pages exist.
+func (c *SettledClient) GetByKey(ctx context.Context, key []byte, cursor uint64, limit uint32) (*GetByKeyResult, error) {
+	res, err := c.stub.GetByKey(ctx, &pb.GetByKeyRequest{Key: key, Cursor: cursor, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Entry, len(res.Entries))
+	for i, e := range res.Entries {
+		out[i] = Entry{
+			Seq:         e.Seq,
+			TimestampNs: e.TimestampNs,
+			Key:         e.Key,
+			Data:        e.Data,
+			LeafHash:    e.LeafHash,
+		}
+	}
+	return &GetByKeyResult{Entries: out, NextCursor: res.NextCursor}, nil
+}
+
 // AppendEntry is a single entry to write in AppendStream.
 type AppendEntry struct {
 	Key  []byte

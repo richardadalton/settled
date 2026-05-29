@@ -61,6 +61,13 @@ pub struct ConsistencyProofResult {
     pub new_sth: SignedTreeHead,
 }
 
+#[derive(Debug, Clone)]
+pub struct GetByKeyResult {
+    pub entries: Vec<Entry>,
+    /// Pass as `cursor` in the next call. `0` means no more pages.
+    pub next_cursor: u64,
+}
+
 fn from_pb_sth(s: proto::SignedTreeHead) -> SignedTreeHead {
     SignedTreeHead {
         tree_size: s.tree_size,
@@ -190,6 +197,26 @@ impl SettledClient {
             tree_size: r.tree_size,
             proof: r.proof,
             sth: from_pb_sth(r.sth.unwrap_or_default()),
+        })
+    }
+
+    /// Retrieve all entries for a given key with cursor-based pagination.
+    /// Pass `cursor=0` to start from the beginning. `next_cursor=0` in the
+    /// result means no further pages exist. `limit=0` uses the server default.
+    pub async fn get_by_key(
+        &mut self,
+        key: Vec<u8>,
+        cursor: u64,
+        limit: u32,
+    ) -> Result<GetByKeyResult, ClientError> {
+        let r = self
+            .inner
+            .get_by_key(self.make_request(proto::GetByKeyRequest { key, cursor, limit }))
+            .await?
+            .into_inner();
+        Ok(GetByKeyResult {
+            entries: r.entries.into_iter().map(from_pb_entry).collect(),
+            next_cursor: r.next_cursor,
         })
     }
 

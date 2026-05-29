@@ -1,4 +1,4 @@
-import type { Sth, EntriesResponse, Entry, InclusionProof, ConsistencyProof } from '../types.js';
+import type { Sth, EntriesResponse, EntriesByKeyResponse, Entry, InclusionProof, ConsistencyProof } from '../types.js';
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -28,6 +28,11 @@ export const api = {
 
   proof(seq: number): Promise<InclusionProof> {
     return get(`/api/entries/${seq}/proof`);
+  },
+
+  entriesByKey(key: string, cursor = '0', limit = 50): Promise<EntriesByKeyResponse> {
+    const params = new URLSearchParams({ key, cursor, limit: String(limit) });
+    return get(`/api/entries/by-key?${params}`);
   },
 
   consistency(oldSize: number, newSize: number): Promise<ConsistencyProof> {

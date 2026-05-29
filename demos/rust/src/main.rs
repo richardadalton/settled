@@ -8,6 +8,7 @@
  *   cargo run -- --verify --consistency           # also verify consistency before→after append
  *   cargo run -- --get 3                          # look up a single entry by seq
  *   cargo run -- --get 3 --verify                 # look up + verify its inclusion proof
+ *   cargo run -- --key "user:alice"               # fetch all entries for a key (paginated)
  *   cargo run -- --watch                          # tail new entries as they arrive
  *   cargo run -- --watch --verify                 # tail + verify each new entry
  *   cargo run -- --host http://localhost:50051    # connect to a non-default address
@@ -46,6 +47,9 @@ struct Args {
 
     #[arg(long, value_names = ["KEY", "DATA"], num_args = 2, help = "Append a single entry")]
     append: Option<Vec<String>>,
+
+    #[arg(long, value_name = "KEY", help = "Fetch all entries for this key (paginated)")]
+    key: Option<String>,
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -374,6 +378,33 @@ async fn mode_append(
     Ok(())
 }
 
+async fn mode_get_by_key(
+    c: &mut SettledClient,
+    key: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut all_entries: Vec<Entry> = Vec::new();
+    let mut cursor = 0u64;
+    loop {
+        let result = c.get_by_key(key.as_bytes().to_vec(), cursor, 0).await?;
+        all_entries.extend(result.entries);
+        if result.next_cursor == 0 {
+            break;
+        }
+        cursor = result.next_cursor;
+    }
+
+    let noun = if all_entries.len() == 1 { "entry" } else { "entries" };
+    println!("{} {} for key \"{key}\":\n", all_entries.len(), noun);
+
+    let hdr = table_header(false);
+    println!("{hdr}");
+    println!("{}", "-".repeat(hdr.len()));
+    for e in &all_entries {
+        println!("{}", entry_row(e, ""));
+    }
+    Ok(())
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -395,6 +426,8 @@ async fn main() {
         mode_get(&mut c, seq, args.verify).await
     } else if let Some(kv) = args.append {
         mode_append(&mut c, &kv[0], &kv[1]).await
+    } else if let Some(key) = args.key {
+        mode_get_by_key(&mut c, &key).await
     } else {
         mode_default(&mut c, args.verify, args.consistency, args.skip_append).await
     };

@@ -7,6 +7,7 @@ import type {
   AppendResult,
   ConsistencyProofResult,
   Entry,
+  GetByKeyResult,
   InclusionProofResult,
   SignedTreeHead,
 } from './types.js';
@@ -194,6 +195,37 @@ export class SettledClient {
             treeSize: toBigInt(res['tree_size']),
             proof: (res['proof'] as unknown[]).map(toBytes),
             sth: fromSth(res['sth'] as Record<string, unknown>),
+          });
+        },
+      );
+    });
+  }
+
+  /**
+   * Retrieve all entries for a given key with cursor-based pagination.
+   * Pass `cursor = 0n` to start from the beginning. `limit = 0` uses the
+   * server default (50). `nextCursor === 0n` in the result means no more pages.
+   */
+  getByKey(key: Uint8Array, cursor: bigint = 0n, limit = 0): Promise<GetByKeyResult> {
+    return new Promise((resolve, reject) => {
+      (this.stub as unknown as Record<string, Function>)['getByKey'](
+        { key, cursor: cursor.toString(), limit },
+        this.metadata,
+        (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
+          if (err) return reject(err);
+          const entries = ((res['entries'] as unknown[]) ?? []).map((raw) => {
+            const e = raw as Record<string, unknown>;
+            return {
+              seq: toBigInt(e['seq']),
+              timestampNs: toBigInt(e['timestamp_ns']),
+              key: toBytes(e['key']),
+              data: toBytes(e['data']),
+              leafHash: toBytes(e['leaf_hash']),
+            } satisfies Entry;
+          });
+          resolve({
+            entries,
+            nextCursor: toBigInt(res['next_cursor']),
           });
         },
       );

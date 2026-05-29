@@ -825,6 +825,121 @@ func (x *ConsistencyProofResponse) GetNewSth() *SignedTreeHead {
 	return nil
 }
 
+type GetByKeyRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Key   []byte                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Resume from this sequence number (inclusive). 0 = start from the beginning.
+	Cursor uint64 `protobuf:"varint,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// Maximum entries to return per page. 0 treated as 50; capped at 1000.
+	Limit         uint32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetByKeyRequest) Reset() {
+	*x = GetByKeyRequest{}
+	mi := &file_settled_v1_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetByKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetByKeyRequest) ProtoMessage() {}
+
+func (x *GetByKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_settled_v1_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetByKeyRequest.ProtoReflect.Descriptor instead.
+func (*GetByKeyRequest) Descriptor() ([]byte, []int) {
+	return file_settled_v1_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetByKeyRequest) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *GetByKeyRequest) GetCursor() uint64 {
+	if x != nil {
+		return x.Cursor
+	}
+	return 0
+}
+
+func (x *GetByKeyRequest) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type GetByKeyResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Entries []*Entry               `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	// Seq to pass as cursor in the next request. 0 means no more entries.
+	NextCursor    uint64 `protobuf:"varint,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetByKeyResponse) Reset() {
+	*x = GetByKeyResponse{}
+	mi := &file_settled_v1_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetByKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetByKeyResponse) ProtoMessage() {}
+
+func (x *GetByKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_settled_v1_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetByKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetByKeyResponse) Descriptor() ([]byte, []int) {
+	return file_settled_v1_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetByKeyResponse) GetEntries() []*Entry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *GetByKeyResponse) GetNextCursor() uint64 {
+	if x != nil {
+		return x.NextCursor
+	}
+	return 0
+}
+
 var File_settled_v1_proto protoreflect.FileDescriptor
 
 const file_settled_v1_proto_rawDesc = "" +
@@ -883,12 +998,21 @@ const file_settled_v1_proto_rawDesc = "" +
 	"\bnew_size\x18\x02 \x01(\x04R\anewSize\x12\x14\n" +
 	"\x05proof\x18\x03 \x03(\fR\x05proof\x123\n" +
 	"\aold_sth\x18\x04 \x01(\v2\x1a.settled.v1.SignedTreeHeadR\x06oldSth\x123\n" +
-	"\anew_sth\x18\x05 \x01(\v2\x1a.settled.v1.SignedTreeHeadR\x06newSth2\xc8\x03\n" +
+	"\anew_sth\x18\x05 \x01(\v2\x1a.settled.v1.SignedTreeHeadR\x06newSth\"Q\n" +
+	"\x0fGetByKeyRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\fR\x03key\x12\x16\n" +
+	"\x06cursor\x18\x02 \x01(\x04R\x06cursor\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\rR\x05limit\"`\n" +
+	"\x10GetByKeyResponse\x12+\n" +
+	"\aentries\x18\x01 \x03(\v2\x11.settled.v1.EntryR\aentries\x12\x1f\n" +
+	"\vnext_cursor\x18\x02 \x01(\x04R\n" +
+	"nextCursor2\x8f\x04\n" +
 	"\n" +
 	"SettledLog\x12?\n" +
 	"\x06Append\x12\x19.settled.v1.AppendRequest\x1a\x1a.settled.v1.AppendResponse\x126\n" +
 	"\x03Get\x12\x16.settled.v1.GetRequest\x1a\x17.settled.v1.GetResponse\x12H\n" +
-	"\tGetLatest\x12\x1c.settled.v1.GetLatestRequest\x1a\x1d.settled.v1.GetLatestResponse\x12?\n" +
+	"\tGetLatest\x12\x1c.settled.v1.GetLatestRequest\x1a\x1d.settled.v1.GetLatestResponse\x12E\n" +
+	"\bGetByKey\x12\x1b.settled.v1.GetByKeyRequest\x1a\x1c.settled.v1.GetByKeyResponse\x12?\n" +
 	"\x06GetSth\x12\x19.settled.v1.GetSthRequest\x1a\x1a.settled.v1.GetSthResponse\x12W\n" +
 	"\x0eInclusionProof\x12!.settled.v1.InclusionProofRequest\x1a\".settled.v1.InclusionProofResponse\x12]\n" +
 	"\x10ConsistencyProof\x12#.settled.v1.ConsistencyProofRequest\x1a$.settled.v1.ConsistencyProofResponseB;Z9github.com/richardadalton/settled/sdks/go/client/proto;pbb\x06proto3"
@@ -905,7 +1029,7 @@ func file_settled_v1_proto_rawDescGZIP() []byte {
 	return file_settled_v1_proto_rawDescData
 }
 
-var file_settled_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_settled_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_settled_v1_proto_goTypes = []any{
 	(*AppendRequest)(nil),            // 0: settled.v1.AppendRequest
 	(*AppendResponse)(nil),           // 1: settled.v1.AppendResponse
@@ -921,6 +1045,8 @@ var file_settled_v1_proto_goTypes = []any{
 	(*InclusionProofResponse)(nil),   // 11: settled.v1.InclusionProofResponse
 	(*ConsistencyProofRequest)(nil),  // 12: settled.v1.ConsistencyProofRequest
 	(*ConsistencyProofResponse)(nil), // 13: settled.v1.ConsistencyProofResponse
+	(*GetByKeyRequest)(nil),          // 14: settled.v1.GetByKeyRequest
+	(*GetByKeyResponse)(nil),         // 15: settled.v1.GetByKeyResponse
 }
 var file_settled_v1_proto_depIdxs = []int32{
 	3,  // 0: settled.v1.GetResponse.entry:type_name -> settled.v1.Entry
@@ -929,23 +1055,26 @@ var file_settled_v1_proto_depIdxs = []int32{
 	7,  // 3: settled.v1.InclusionProofResponse.sth:type_name -> settled.v1.SignedTreeHead
 	7,  // 4: settled.v1.ConsistencyProofResponse.old_sth:type_name -> settled.v1.SignedTreeHead
 	7,  // 5: settled.v1.ConsistencyProofResponse.new_sth:type_name -> settled.v1.SignedTreeHead
-	0,  // 6: settled.v1.SettledLog.Append:input_type -> settled.v1.AppendRequest
-	2,  // 7: settled.v1.SettledLog.Get:input_type -> settled.v1.GetRequest
-	5,  // 8: settled.v1.SettledLog.GetLatest:input_type -> settled.v1.GetLatestRequest
-	8,  // 9: settled.v1.SettledLog.GetSth:input_type -> settled.v1.GetSthRequest
-	10, // 10: settled.v1.SettledLog.InclusionProof:input_type -> settled.v1.InclusionProofRequest
-	12, // 11: settled.v1.SettledLog.ConsistencyProof:input_type -> settled.v1.ConsistencyProofRequest
-	1,  // 12: settled.v1.SettledLog.Append:output_type -> settled.v1.AppendResponse
-	4,  // 13: settled.v1.SettledLog.Get:output_type -> settled.v1.GetResponse
-	6,  // 14: settled.v1.SettledLog.GetLatest:output_type -> settled.v1.GetLatestResponse
-	9,  // 15: settled.v1.SettledLog.GetSth:output_type -> settled.v1.GetSthResponse
-	11, // 16: settled.v1.SettledLog.InclusionProof:output_type -> settled.v1.InclusionProofResponse
-	13, // 17: settled.v1.SettledLog.ConsistencyProof:output_type -> settled.v1.ConsistencyProofResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	3,  // 6: settled.v1.GetByKeyResponse.entries:type_name -> settled.v1.Entry
+	0,  // 7: settled.v1.SettledLog.Append:input_type -> settled.v1.AppendRequest
+	2,  // 8: settled.v1.SettledLog.Get:input_type -> settled.v1.GetRequest
+	5,  // 9: settled.v1.SettledLog.GetLatest:input_type -> settled.v1.GetLatestRequest
+	14, // 10: settled.v1.SettledLog.GetByKey:input_type -> settled.v1.GetByKeyRequest
+	8,  // 11: settled.v1.SettledLog.GetSth:input_type -> settled.v1.GetSthRequest
+	10, // 12: settled.v1.SettledLog.InclusionProof:input_type -> settled.v1.InclusionProofRequest
+	12, // 13: settled.v1.SettledLog.ConsistencyProof:input_type -> settled.v1.ConsistencyProofRequest
+	1,  // 14: settled.v1.SettledLog.Append:output_type -> settled.v1.AppendResponse
+	4,  // 15: settled.v1.SettledLog.Get:output_type -> settled.v1.GetResponse
+	6,  // 16: settled.v1.SettledLog.GetLatest:output_type -> settled.v1.GetLatestResponse
+	15, // 17: settled.v1.SettledLog.GetByKey:output_type -> settled.v1.GetByKeyResponse
+	9,  // 18: settled.v1.SettledLog.GetSth:output_type -> settled.v1.GetSthResponse
+	11, // 19: settled.v1.SettledLog.InclusionProof:output_type -> settled.v1.InclusionProofResponse
+	13, // 20: settled.v1.SettledLog.ConsistencyProof:output_type -> settled.v1.ConsistencyProofResponse
+	14, // [14:21] is the sub-list for method output_type
+	7,  // [7:14] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_settled_v1_proto_init() }
@@ -959,7 +1088,7 @@ func file_settled_v1_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_settled_v1_proto_rawDesc), len(file_settled_v1_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

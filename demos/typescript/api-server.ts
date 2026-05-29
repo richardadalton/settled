@@ -70,6 +70,31 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (url.pathname === '/api/entries/by-key' && req.method === 'GET') {
+      const key = url.searchParams.get('key');
+      if (!key) return json(res, { error: 'key is required' }, 400);
+      const cursor = BigInt(url.searchParams.get('cursor') ?? '0');
+      const limit  = Number(url.searchParams.get('limit') ?? 0);
+
+      const entries: unknown[] = [];
+      let nextCursor = cursor;
+      do {
+        const page = await client.getByKey(enc.encode(key), nextCursor, limit);
+        for (const e of page.entries) {
+          entries.push({
+            seq: String(e.seq),
+            key: dec.decode(e.key),
+            data: dec.decode(e.data),
+            timestampNs: String(e.timestampNs),
+            leafHash: hex(e.leafHash),
+          });
+        }
+        nextCursor = page.nextCursor;
+      } while (nextCursor !== 0n && limit === 0);
+
+      return json(res, { entries, next_cursor: String(nextCursor) });
+    }
+
     json(res, { error: 'not found' }, 404);
   } catch (e) {
     json(res, { error: String(e) }, 500);
