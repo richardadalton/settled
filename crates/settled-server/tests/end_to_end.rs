@@ -46,6 +46,9 @@ async fn boot() -> (
         admin_listen: "127.0.0.1:0".parse().unwrap(),
         sth_interval_secs: 1,
         api_key: None,
+        max_appends_per_sec: None,
+        max_get_latest: 1000,
+        max_message_bytes: 4 * 1024 * 1024,
     };
 
     let state = AppState::build(config).await.expect("AppState::build");

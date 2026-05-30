@@ -17,10 +17,6 @@ use crate::proto::{
 };
 use crate::state::AppState;
 
-/// Maximum number of entries returnable by a single GetLatest call.
-/// Larger values are silently clamped to this cap.
-const MAX_LATEST: u32 = 1000;
-
 /// Maximum number of entries returnable by a single GetByKey call.
 const MAX_BY_KEY: u32 = 1000;
 /// Default page size for GetByKey when limit == 0.
@@ -59,6 +55,14 @@ impl SettledLog for SettledService {
         &self,
         request: Request<AppendRequest>,
     ) -> Result<Response<AppendResponse>, Status> {
+        if let Some(ref limiter) = self.state.rate_limiter {
+            if !limiter.try_consume() {
+                return Err(Status::resource_exhausted(
+                    "append rate limit exceeded; slow down",
+                ));
+            }
+        }
+
         let req = request.into_inner();
         let lh = leaf_hash(&req.data);
 
@@ -120,7 +124,8 @@ impl SettledLog for SettledService {
         request: Request<GetLatestRequest>,
     ) -> Result<Response<GetLatestResponse>, Status> {
         let req = request.into_inner();
-        let n = if req.n == 0 { 1 } else { req.n.min(MAX_LATEST) } as usize;
+        let cap = self.state.config.max_get_latest;
+        let n = if req.n == 0 { 1 } else { req.n.min(cap) } as usize;
 
         let total_available = self.state.log.count();
         let log = self.state.log.clone();

@@ -6,6 +6,7 @@ pub mod admin;
 pub mod config;
 pub mod error;
 pub mod metrics;
+pub mod rate_limit;
 pub mod service;
 pub mod signer;
 pub mod state;

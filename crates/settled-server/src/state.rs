@@ -6,6 +6,7 @@ use tokio::sync::broadcast;
 
 use crate::config::Config;
 use crate::proto::Entry as ProtoEntry;
+use crate::rate_limit::RateLimiter;
 use crate::signer::{LocalSigner, Signer};
 
 pub struct AppendState {
@@ -29,6 +30,8 @@ pub struct AppState {
     /// Broadcast channel: every successful Append sends the new entry here.
     /// Watch RPCs subscribe to receive a live stream.
     pub watch_tx: Arc<broadcast::Sender<ProtoEntry>>,
+    /// Server-wide append rate limiter; `None` when unlimited.
+    pub rate_limiter: Option<RateLimiter>,
 }
 
 impl AppState {
@@ -76,6 +79,7 @@ impl AppState {
         }
 
         let (watch_tx, _) = broadcast::channel(WATCH_CHANNEL_CAP);
+        let rate_limiter = config.max_appends_per_sec.map(RateLimiter::new);
 
         Ok(AppState {
             log: db.log_store(),
@@ -86,6 +90,7 @@ impl AppState {
             signer,
             config,
             watch_tx: Arc::new(watch_tx),
+            rate_limiter,
         })
     }
 }

@@ -32,6 +32,21 @@ struct Args {
     /// Falls back to $SETTLED_API_KEY. If neither is set, auth is disabled (dev mode).
     #[arg(long, env = "SETTLED_API_KEY")]
     api_key: Option<String>,
+
+    /// Server-wide append rate limit in requests/second (token bucket).
+    /// Omit to allow unlimited appends.
+    #[arg(long, value_name = "N")]
+    max_appends_per_sec: Option<u32>,
+
+    /// Maximum number of entries GetLatest may return per call.
+    /// Requests above this are silently clamped.
+    #[arg(long, default_value_t = 1000, value_name = "N")]
+    max_get_latest: u32,
+
+    /// Maximum gRPC message size the server will decode, in bytes.
+    /// Requests above this are rejected with RESOURCE_EXHAUSTED.
+    #[arg(long, default_value_t = 4 * 1024 * 1024, value_name = "BYTES")]
+    max_message_bytes: usize,
 }
 
 /// Resolves on SIGTERM (Unix) or Ctrl-C, whichever arrives first.
@@ -75,7 +90,16 @@ async fn main() -> anyhow::Result<()> {
         admin_listen: args.admin_listen,
         sth_interval_secs: args.sth_interval_secs,
         api_key: args.api_key,
+        max_appends_per_sec: args.max_appends_per_sec,
+        max_get_latest: args.max_get_latest,
+        max_message_bytes: args.max_message_bytes,
     };
+
+    if let Some(rate) = config.max_appends_per_sec {
+        tracing::info!(rate, "Append rate limit enabled");
+    } else {
+        tracing::warn!("No append rate limit configured (--max-appends-per-sec)");
+    }
 
     let state = AppState::build(config.clone()).await?;
 
@@ -106,27 +130,42 @@ async fn main() -> anyhow::Result<()> {
     let api_key = config.api_key.clone();
     tracing::info!("gRPC listening on {}", config.listen);
 
+    tracing::info!(
+        max_get_latest = config.max_get_latest,
+        max_message_bytes = config.max_message_bytes,
+        "Server limits"
+    );
+
+    let max_message_bytes = config.max_message_bytes;
+
     // gRPC server: blocks until the shutdown signal fires, then drains in-flight RPCs.
+    //
+    // The interceptor is applied as a server-wide layer so that
+    // max_decoding_message_size can be set on the SettledLogServer wrapper
+    // (with_interceptor returns InterceptedService which does not expose it).
+    #[allow(clippy::result_large_err)]
+    let interceptor = tonic::service::interceptor(move |req: tonic::Request<()>| {
+        if let Some(ref expected) = api_key {
+            let ok = req
+                .metadata()
+                .get("authorization")
+                .is_some_and(|v| v.as_bytes() == format!("Bearer {expected}").as_bytes());
+            if ok {
+                Ok(req)
+            } else {
+                Err(tonic::Status::unauthenticated("missing or invalid api key"))
+            }
+        } else {
+            Ok(req)
+        }
+    });
+
     Server::builder()
-        .add_service(SettledLogServer::with_interceptor(
-            SettledService::new(state),
-            #[allow(clippy::result_large_err)]
-            move |req: tonic::Request<()>| {
-                if let Some(ref expected) = api_key {
-                    let ok = req
-                        .metadata()
-                        .get("authorization")
-                        .is_some_and(|v| v.as_bytes() == format!("Bearer {expected}").as_bytes());
-                    if ok {
-                        Ok(req)
-                    } else {
-                        Err(tonic::Status::unauthenticated("missing or invalid api key"))
-                    }
-                } else {
-                    Ok(req)
-                }
-            },
-        ))
+        .layer(interceptor)
+        .add_service(
+            SettledLogServer::new(SettledService::new(state))
+                .max_decoding_message_size(max_message_bytes),
+        )
         .serve_with_shutdown(config.listen, shutdown_signal())
         .await?;
 
