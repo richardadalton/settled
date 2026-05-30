@@ -35,6 +35,15 @@ pub struct SettledService {
     state: AppState,
 }
 
+/// Increment `settled_rpc_errors_total{rpc, code}` and return the status unchanged.
+#[inline]
+fn track_err(rpc: &'static str, status: Status) -> Status {
+    crate::metrics::RPC_ERRORS
+        .with_label_values(&[rpc, status.code().description()])
+        .inc();
+    status
+}
+
 impl SettledService {
     pub fn new(state: AppState) -> Self {
         Self { state }
@@ -61,8 +70,9 @@ impl SettledLog for SettledService {
     ) -> Result<Response<AppendResponse>, Status> {
         if let Some(ref limiter) = self.state.rate_limiter {
             if !limiter.try_consume() {
-                return Err(Status::resource_exhausted(
-                    "append rate limit exceeded; slow down",
+                return Err(track_err(
+                    "Append",
+                    Status::resource_exhausted("append rate limit exceeded; slow down"),
                 ));
             }
         }
@@ -77,7 +87,7 @@ impl SettledLog for SettledService {
                 .state
                 .log
                 .append(&req.key, &req.data)
-                .map_err(|e| Status::from(Error::Storage(e)))?;
+                .map_err(|e| track_err("Append", Status::from(Error::Storage(e))))?;
             mu.merkle.append(lh);
             (seq, ts)
         };
@@ -114,15 +124,19 @@ impl SettledLog for SettledService {
             return Ok(Response::new(BatchAppendResponse { entries: vec![] }));
         }
         if n > MAX_BATCH {
-            return Err(Status::from(Error::InvalidArgument(format!(
-                "batch size {n} exceeds maximum {MAX_BATCH}"
-            ))));
+            return Err(track_err(
+                "BatchAppend",
+                Status::from(Error::InvalidArgument(format!(
+                    "batch size {n} exceeds maximum {MAX_BATCH}"
+                ))),
+            ));
         }
 
         if let Some(ref limiter) = self.state.rate_limiter {
             if !limiter.try_consume_n(n as u32) {
-                return Err(Status::resource_exhausted(
-                    "append rate limit exceeded; slow down",
+                return Err(track_err(
+                    "BatchAppend",
+                    Status::resource_exhausted("append rate limit exceeded; slow down"),
                 ));
             }
         }
@@ -140,7 +154,7 @@ impl SettledLog for SettledService {
                 .state
                 .log
                 .append_batch(&pairs)
-                .map_err(|e| Status::from(Error::Storage(e)))?;
+                .map_err(|e| track_err("BatchAppend", Status::from(Error::Storage(e))))?;
             for &(_, _, lh) in &results {
                 mu.merkle.append(lh);
             }
@@ -178,8 +192,13 @@ impl SettledLog for SettledService {
             .state
             .log
             .get_by_seq(req.seq)
-            .map_err(|e| Status::from(Error::Storage(e)))?
-            .ok_or_else(|| Status::from(Error::NotFound(format!("seq {} not found", req.seq))))?;
+            .map_err(|e| track_err("Get", Status::from(Error::Storage(e))))?
+            .ok_or_else(|| {
+                track_err(
+                    "Get",
+                    Status::from(Error::NotFound(format!("seq {} not found", req.seq))),
+                )
+            })?;
 
         Ok(Response::new(GetResponse {
             entry: Some(Entry {
@@ -204,8 +223,8 @@ impl SettledLog for SettledService {
         let log = self.state.log.clone();
         let entries = tokio::task::spawn_blocking(move || log.latest(n))
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .map_err(|e| Status::from(Error::Storage(e)))?;
+            .map_err(|e| track_err("GetLatest", Status::internal(e.to_string())))?
+            .map_err(|e| track_err("GetLatest", Status::from(Error::Storage(e))))?;
 
         let entries = entries
             .into_iter()
@@ -330,8 +349,8 @@ impl SettledLog for SettledService {
         let (entries, next_cursor) =
             tokio::task::spawn_blocking(move || log.seq_range_paged(start, to_seq, limit))
                 .await
-                .map_err(|e| Status::internal(e.to_string()))?
-                .map_err(|e| Status::from(Error::Storage(e)))?;
+                .map_err(|e| track_err("ListEntries", Status::internal(e.to_string())))?
+                .map_err(|e| track_err("ListEntries", Status::from(Error::Storage(e))))?;
 
         let entries = entries
             .into_iter()
@@ -356,9 +375,10 @@ impl SettledLog for SettledService {
     ) -> Result<Response<GetByKeyResponse>, Status> {
         let req = request.into_inner();
         if req.key.is_empty() {
-            return Err(Status::from(Error::InvalidArgument(
-                "key must not be empty".into(),
-            )));
+            return Err(track_err(
+                "GetByKey",
+                Status::from(Error::InvalidArgument("key must not be empty".into())),
+            ));
         }
         let limit = if req.limit == 0 {
             DEFAULT_BY_KEY
@@ -372,8 +392,8 @@ impl SettledLog for SettledService {
         let (entries, next_cursor) =
             tokio::task::spawn_blocking(move || log.entries_by_key(&key, from_seq, limit))
                 .await
-                .map_err(|e| Status::internal(e.to_string()))?
-                .map_err(|e| Status::from(Error::Storage(e)))?;
+                .map_err(|e| track_err("GetByKey", Status::internal(e.to_string())))?
+                .map_err(|e| track_err("GetByKey", Status::from(Error::Storage(e))))?;
 
         let entries = entries
             .into_iter()
@@ -402,18 +422,26 @@ impl SettledLog for SettledService {
             self.state
                 .heads
                 .latest()
-                .map_err(|e| Status::from(Error::Storage(e)))?
-                .ok_or_else(|| Status::from(Error::NotFound("no STH available yet".into())))?
+                .map_err(|e| track_err("GetSth", Status::from(Error::Storage(e))))?
+                .ok_or_else(|| {
+                    track_err(
+                        "GetSth",
+                        Status::from(Error::NotFound("no STH available yet".into())),
+                    )
+                })?
         } else {
             self.state
                 .heads
                 .at_size(req.tree_size)
-                .map_err(|e| Status::from(Error::Storage(e)))?
+                .map_err(|e| track_err("GetSth", Status::from(Error::Storage(e))))?
                 .ok_or_else(|| {
-                    Status::from(Error::NotFound(format!(
-                        "no STH at tree_size {}",
-                        req.tree_size
-                    )))
+                    track_err(
+                        "GetSth",
+                        Status::from(Error::NotFound(format!(
+                            "no STH at tree_size {}",
+                            req.tree_size
+                        ))),
+                    )
                 })?
         };
 
@@ -432,18 +460,26 @@ impl SettledLog for SettledService {
             self.state
                 .heads
                 .latest()
-                .map_err(|e| Status::from(Error::Storage(e)))?
-                .ok_or_else(|| Status::from(Error::NotFound("no STH available yet".into())))?
+                .map_err(|e| track_err("InclusionProof", Status::from(Error::Storage(e))))?
+                .ok_or_else(|| {
+                    track_err(
+                        "InclusionProof",
+                        Status::from(Error::NotFound("no STH available yet".into())),
+                    )
+                })?
                 .tree_size
         } else {
             req.tree_size
         };
 
         if req.seq >= tree_size {
-            return Err(Status::from(Error::InvalidArgument(format!(
-                "seq {} is out of range for tree_size {}",
-                req.seq, tree_size
-            ))));
+            return Err(track_err(
+                "InclusionProof",
+                Status::from(Error::InvalidArgument(format!(
+                    "seq {} is out of range for tree_size {}",
+                    req.seq, tree_size
+                ))),
+            ));
         }
 
         let log = self.state.log.clone();
@@ -452,19 +488,22 @@ impl SettledLog for SettledService {
                 .map(|entries| entries.iter().map(|e| e.leaf_hash).collect())
         })
         .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .map_err(|e| Status::from(Error::Storage(e)))?;
+        .map_err(|e| track_err("InclusionProof", Status::internal(e.to_string())))?
+        .map_err(|e| track_err("InclusionProof", Status::from(Error::Storage(e))))?;
 
         let path = proof::inclusion_proof(&leaf_hashes, req.seq as usize)
-            .map_err(|e| Status::from(Error::Proof(e)))?;
+            .map_err(|e| track_err("InclusionProof", Status::from(Error::Proof(e))))?;
 
         let sth = self
             .state
             .heads
             .at_size(tree_size)
-            .map_err(|e| Status::from(Error::Storage(e)))?
+            .map_err(|e| track_err("InclusionProof", Status::from(Error::Storage(e))))?
             .ok_or_else(|| {
-                Status::from(Error::NotFound(format!("no STH at tree_size {tree_size}")))
+                track_err(
+                    "InclusionProof",
+                    Status::from(Error::NotFound(format!("no STH at tree_size {tree_size}"))),
+                )
             })?;
 
         Ok(Response::new(InclusionProofResponse {
@@ -482,27 +521,36 @@ impl SettledLog for SettledService {
         let req = request.into_inner();
 
         if req.old_size == 0 {
-            return Err(Status::from(Error::InvalidArgument(
-                "old_size must be > 0".into(),
-            )));
+            return Err(track_err(
+                "ConsistencyProof",
+                Status::from(Error::InvalidArgument("old_size must be > 0".into())),
+            ));
         }
 
         let new_size = if req.new_size == 0 {
             self.state
                 .heads
                 .latest()
-                .map_err(|e| Status::from(Error::Storage(e)))?
-                .ok_or_else(|| Status::from(Error::NotFound("no STH available yet".into())))?
+                .map_err(|e| track_err("ConsistencyProof", Status::from(Error::Storage(e))))?
+                .ok_or_else(|| {
+                    track_err(
+                        "ConsistencyProof",
+                        Status::from(Error::NotFound("no STH available yet".into())),
+                    )
+                })?
                 .tree_size
         } else {
             req.new_size
         };
 
         if req.old_size > new_size {
-            return Err(Status::from(Error::InvalidArgument(format!(
-                "old_size {} > new_size {}",
-                req.old_size, new_size
-            ))));
+            return Err(track_err(
+                "ConsistencyProof",
+                Status::from(Error::InvalidArgument(format!(
+                    "old_size {} > new_size {}",
+                    req.old_size, new_size
+                ))),
+            ));
         }
 
         let old_size = req.old_size;
@@ -512,28 +560,34 @@ impl SettledLog for SettledService {
                 .map(|entries| entries.iter().map(|e| e.leaf_hash).collect())
         })
         .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .map_err(|e| Status::from(Error::Storage(e)))?;
+        .map_err(|e| track_err("ConsistencyProof", Status::internal(e.to_string())))?
+        .map_err(|e| track_err("ConsistencyProof", Status::from(Error::Storage(e))))?;
 
         let path = proof::consistency_proof(&leaf_hashes, old_size as usize)
-            .map_err(|e| Status::from(Error::Proof(e)))?;
+            .map_err(|e| track_err("ConsistencyProof", Status::from(Error::Proof(e))))?;
 
         let old_sth = self
             .state
             .heads
             .at_size(old_size)
-            .map_err(|e| Status::from(Error::Storage(e)))?
+            .map_err(|e| track_err("ConsistencyProof", Status::from(Error::Storage(e))))?
             .ok_or_else(|| {
-                Status::from(Error::NotFound(format!("no STH at old_size {old_size}")))
+                track_err(
+                    "ConsistencyProof",
+                    Status::from(Error::NotFound(format!("no STH at old_size {old_size}"))),
+                )
             })?;
 
         let new_sth = self
             .state
             .heads
             .at_size(new_size)
-            .map_err(|e| Status::from(Error::Storage(e)))?
+            .map_err(|e| track_err("ConsistencyProof", Status::from(Error::Storage(e))))?
             .ok_or_else(|| {
-                Status::from(Error::NotFound(format!("no STH at new_size {new_size}")))
+                track_err(
+                    "ConsistencyProof",
+                    Status::from(Error::NotFound(format!("no STH at new_size {new_size}"))),
+                )
             })?;
 
         Ok(Response::new(ConsistencyProofResponse {

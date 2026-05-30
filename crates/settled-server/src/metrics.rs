@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use prometheus::{
-    register_histogram, register_int_counter, register_int_gauge, Histogram, IntCounter, IntGauge,
+    register_counter_vec, register_histogram, register_int_counter, register_int_gauge, CounterVec,
+    Histogram, IntCounter, IntGauge,
 };
 
 lazy_static! {
@@ -41,6 +42,15 @@ lazy_static! {
     pub static ref STH_LAST_TIMESTAMP_NS: IntGauge = register_int_gauge!(
         "settled_sth_last_timestamp_ns",
         "Timestamp of the latest Signed Tree Head in nanoseconds since Unix epoch"
+    ).unwrap();
+
+    /// gRPC errors returned by the server, labelled by `rpc` (method name)
+    /// and `code` (gRPC status code string, e.g. NOT_FOUND, INTERNAL).
+    /// Use `rate(settled_rpc_errors_total[5m])` to alert on unexpected error spikes.
+    pub static ref RPC_ERRORS: CounterVec = register_counter_vec!(
+        "settled_rpc_errors_total",
+        "Total gRPC errors returned by the server",
+        &["rpc", "code"]
     ).unwrap();
 }
 
