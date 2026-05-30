@@ -45,18 +45,6 @@ One subcommand (`verify`) checks a live STH. No batch verification, no consisten
 - Add `settled-check export --server ... --from 0 --to 1000 --output entries.json`
 - Add `settled-check inspect-sth --file ./sth.json` (offline STH signature verification, no server needed)
 
-### `AppendResponse` should echo the key
-The response contains `seq`, `timestamp_ns`, and `leaf_hash` but not `key`. Clients must carry the key themselves to correlate the receipt, which is error-prone in async code.
-- Add `bytes key` to `AppendResponse` in the proto
-- Update the server implementation
-- Update all SDKs and demos
-
-### Batch append RPC missing
-High-throughput clients must issue one RPC per entry. For workloads that append many items in a logical unit (e.g. a financial transaction), this is expensive.
-- Add `rpc BatchAppend(BatchAppendRequest) returns (BatchAppendResponse)`
-- Implement atomically: assign sequential seqs, write WAL in one batch
-- Add batch support to each SDK
-
 ### Prometheus metrics are sparse
 The admin `/metrics` endpoint exists but what is exported is undocumented and likely incomplete.
 - Ensure these metrics exist: `settled_append_total`, `settled_append_duration_seconds` (histogram), `settled_sth_signings_total`, `settled_tree_size`, `settled_rpc_errors_total` (by RPC name)
