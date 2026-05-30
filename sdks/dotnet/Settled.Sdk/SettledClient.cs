@@ -86,6 +86,32 @@ public sealed class SettledClient : IDisposable
 
     public void Dispose() => _channel.Dispose();
 
+    /// <summary>
+    /// Append multiple entries atomically. Seqs are assigned contiguously and
+    /// written to the WAL in a single batch. Capped at 1000 entries per call.
+    /// Returns one AppendResult per entry in the same order.
+    /// </summary>
+    public async Task<IReadOnlyList<AppendResult>> BatchAppendAsync(
+        IEnumerable<(byte[] Key, byte[] Data)> entries,
+        CancellationToken ct = default)
+    {
+        var req = new BatchAppendRequest();
+        foreach (var (key, data) in entries)
+            req.Entries.Add(new AppendRequest
+            {
+                Key = Google.Protobuf.ByteString.CopyFrom(key),
+                Data = Google.Protobuf.ByteString.CopyFrom(data),
+            });
+        var res = await _stub.BatchAppendAsync(req, headers: _headers, cancellationToken: ct);
+        return res.Entries.Select(r => new AppendResult
+        {
+            Seq = r.Seq,
+            TimestampNs = r.TimestampNs,
+            LeafHash = r.LeafHash.ToByteArray(),
+            Key = r.Key.ToByteArray(),
+        }).ToArray();
+    }
+
     public async Task<AppendResult> AppendAsync(byte[] key, byte[] data, CancellationToken ct = default)
     {
         var res = await _stub.AppendAsync(new AppendRequest { Key = Google.Protobuf.ByteString.CopyFrom(key), Data = Google.Protobuf.ByteString.CopyFrom(data) }, headers: _headers, cancellationToken: ct);

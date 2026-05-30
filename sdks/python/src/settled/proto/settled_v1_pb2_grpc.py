@@ -46,6 +46,11 @@ class SettledLogStub(object):
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetRequest.SerializeToString,
                 response_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetResponse.FromString,
                 _registered_method=True)
+        self.BatchAppend = channel.unary_unary(
+                '/settled.v1.SettledLog/BatchAppend',
+                request_serializer=settled_dot_proto_dot_settled__v1__pb2.BatchAppendRequest.SerializeToString,
+                response_deserializer=settled_dot_proto_dot_settled__v1__pb2.BatchAppendResponse.FromString,
+                _registered_method=True)
         self.GetLatest = channel.unary_unary(
                 '/settled.v1.SettledLog/GetLatest',
                 request_serializer=settled_dot_proto_dot_settled__v1__pb2.GetLatestRequest.SerializeToString,
@@ -97,6 +102,15 @@ class SettledLogServicer(object):
 
     def Get(self, request, context):
         """Retrieve a single entry by sequence number.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BatchAppend(self, request, context):
+        """Append multiple entries atomically: all seqs are assigned contiguously and
+        written to the WAL in a single batch. Returns one AppendResponse per entry
+        in the same order. Capped at 1000 entries per call.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -169,6 +183,11 @@ def add_SettledLogServicer_to_server(servicer, server):
                     servicer.Get,
                     request_deserializer=settled_dot_proto_dot_settled__v1__pb2.GetRequest.FromString,
                     response_serializer=settled_dot_proto_dot_settled__v1__pb2.GetResponse.SerializeToString,
+            ),
+            'BatchAppend': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchAppend,
+                    request_deserializer=settled_dot_proto_dot_settled__v1__pb2.BatchAppendRequest.FromString,
+                    response_serializer=settled_dot_proto_dot_settled__v1__pb2.BatchAppendResponse.SerializeToString,
             ),
             'GetLatest': grpc.unary_unary_rpc_method_handler(
                     servicer.GetLatest,
@@ -262,6 +281,33 @@ class SettledLog(object):
             '/settled.v1.SettledLog/Get',
             settled_dot_proto_dot_settled__v1__pb2.GetRequest.SerializeToString,
             settled_dot_proto_dot_settled__v1__pb2.GetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchAppend(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/settled.v1.SettledLog/BatchAppend',
+            settled_dot_proto_dot_settled__v1__pb2.BatchAppendRequest.SerializeToString,
+            settled_dot_proto_dot_settled__v1__pb2.BatchAppendResponse.FromString,
             options,
             channel_credentials,
             insecure,

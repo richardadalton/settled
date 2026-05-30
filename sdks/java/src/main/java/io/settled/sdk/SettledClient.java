@@ -66,6 +66,8 @@ public final class SettledClient implements Closeable {
 
     public record AppendResult(long seq, long timestampNs, byte[] leafHash, byte[] key) {}
 
+    public record AppendEntry(byte[] key, byte[] data) {}
+
     public record Entry(long seq, long timestampNs, byte[] key, byte[] data, byte[] leafHash) {}
 
     public record Sth(
@@ -108,6 +110,26 @@ public final class SettledClient implements Closeable {
                     @Override public void onError(Throwable t) { observer.onError(t); }
                     @Override public void onCompleted() { observer.onCompleted(); }
                 });
+    }
+
+    /**
+     * Append multiple entries atomically. Seqs are assigned contiguously and
+     * written to the WAL in a single batch. Capped at 1000 entries per call.
+     * Returns one AppendResult per entry in the same order.
+     */
+    public List<AppendResult> batchAppend(List<AppendEntry> entries) {
+        var pbEntries = entries.stream()
+                .map(e -> AppendRequest.newBuilder()
+                        .setKey(ByteString.copyFrom(e.key()))
+                        .setData(ByteString.copyFrom(e.data()))
+                        .build())
+                .toList();
+        var res = stub.batchAppend(BatchAppendRequest.newBuilder().addAllEntries(pbEntries).build());
+        return res.getEntriesList().stream()
+                .map(r -> new AppendResult(
+                        r.getSeq(), r.getTimestampNs(),
+                        r.getLeafHash().toByteArray(), r.getKey().toByteArray()))
+                .toList();
     }
 
     public AppendResult append(byte[] key, byte[] data) {

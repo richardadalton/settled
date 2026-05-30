@@ -46,4 +46,21 @@ impl RateLimiter {
     pub fn try_consume(&self) -> bool {
         self.0.lock().unwrap().try_consume()
     }
+
+    /// Atomically consume `n` tokens. Returns `false` (and consumes nothing) if
+    /// fewer than `n` tokens are available.
+    pub fn try_consume_n(&self, n: u32) -> bool {
+        let n = n as f64;
+        let mut b = self.0.lock().unwrap();
+        let now = Instant::now();
+        let elapsed = now.duration_since(b.last).as_secs_f64();
+        b.tokens = (b.tokens + elapsed * b.rate).min(b.capacity);
+        b.last = now;
+        if b.tokens >= n {
+            b.tokens -= n;
+            true
+        } else {
+            false
+        }
+    }
 }

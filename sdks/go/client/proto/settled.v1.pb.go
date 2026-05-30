@@ -891,6 +891,96 @@ func (x *WatchRequest) GetFromSeq() uint64 {
 	return 0
 }
 
+type BatchAppendRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum batch size is 1000 entries; larger requests are rejected.
+	Entries       []*AppendRequest `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchAppendRequest) Reset() {
+	*x = BatchAppendRequest{}
+	mi := &file_settled_v1_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchAppendRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchAppendRequest) ProtoMessage() {}
+
+func (x *BatchAppendRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_settled_v1_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchAppendRequest.ProtoReflect.Descriptor instead.
+func (*BatchAppendRequest) Descriptor() ([]byte, []int) {
+	return file_settled_v1_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *BatchAppendRequest) GetEntries() []*AppendRequest {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type BatchAppendResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One AppendResponse per request entry, in the same order.
+	Entries       []*AppendResponse `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchAppendResponse) Reset() {
+	*x = BatchAppendResponse{}
+	mi := &file_settled_v1_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchAppendResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchAppendResponse) ProtoMessage() {}
+
+func (x *BatchAppendResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_settled_v1_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchAppendResponse.ProtoReflect.Descriptor instead.
+func (*BatchAppendResponse) Descriptor() ([]byte, []int) {
+	return file_settled_v1_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *BatchAppendResponse) GetEntries() []*AppendResponse {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
 type ListEntriesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Inclusive lower bound. Ignored when cursor > 0.
@@ -907,7 +997,7 @@ type ListEntriesRequest struct {
 
 func (x *ListEntriesRequest) Reset() {
 	*x = ListEntriesRequest{}
-	mi := &file_settled_v1_proto_msgTypes[15]
+	mi := &file_settled_v1_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -919,7 +1009,7 @@ func (x *ListEntriesRequest) String() string {
 func (*ListEntriesRequest) ProtoMessage() {}
 
 func (x *ListEntriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_settled_v1_proto_msgTypes[15]
+	mi := &file_settled_v1_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -932,7 +1022,7 @@ func (x *ListEntriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEntriesRequest.ProtoReflect.Descriptor instead.
 func (*ListEntriesRequest) Descriptor() ([]byte, []int) {
-	return file_settled_v1_proto_rawDescGZIP(), []int{15}
+	return file_settled_v1_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListEntriesRequest) GetFromSeq() uint64 {
@@ -974,7 +1064,7 @@ type ListEntriesResponse struct {
 
 func (x *ListEntriesResponse) Reset() {
 	*x = ListEntriesResponse{}
-	mi := &file_settled_v1_proto_msgTypes[16]
+	mi := &file_settled_v1_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -986,7 +1076,7 @@ func (x *ListEntriesResponse) String() string {
 func (*ListEntriesResponse) ProtoMessage() {}
 
 func (x *ListEntriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_settled_v1_proto_msgTypes[16]
+	mi := &file_settled_v1_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -999,7 +1089,7 @@ func (x *ListEntriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEntriesResponse.ProtoReflect.Descriptor instead.
 func (*ListEntriesResponse) Descriptor() ([]byte, []int) {
-	return file_settled_v1_proto_rawDescGZIP(), []int{16}
+	return file_settled_v1_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListEntriesResponse) GetEntries() []*Entry {
@@ -1029,7 +1119,7 @@ type GetByKeyRequest struct {
 
 func (x *GetByKeyRequest) Reset() {
 	*x = GetByKeyRequest{}
-	mi := &file_settled_v1_proto_msgTypes[17]
+	mi := &file_settled_v1_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1131,7 @@ func (x *GetByKeyRequest) String() string {
 func (*GetByKeyRequest) ProtoMessage() {}
 
 func (x *GetByKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_settled_v1_proto_msgTypes[17]
+	mi := &file_settled_v1_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1144,7 @@ func (x *GetByKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetByKeyRequest) Descriptor() ([]byte, []int) {
-	return file_settled_v1_proto_rawDescGZIP(), []int{17}
+	return file_settled_v1_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetByKeyRequest) GetKey() []byte {
@@ -1089,7 +1179,7 @@ type GetByKeyResponse struct {
 
 func (x *GetByKeyResponse) Reset() {
 	*x = GetByKeyResponse{}
-	mi := &file_settled_v1_proto_msgTypes[18]
+	mi := &file_settled_v1_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1101,7 +1191,7 @@ func (x *GetByKeyResponse) String() string {
 func (*GetByKeyResponse) ProtoMessage() {}
 
 func (x *GetByKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_settled_v1_proto_msgTypes[18]
+	mi := &file_settled_v1_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1114,7 +1204,7 @@ func (x *GetByKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByKeyResponse.ProtoReflect.Descriptor instead.
 func (*GetByKeyResponse) Descriptor() ([]byte, []int) {
-	return file_settled_v1_proto_rawDescGZIP(), []int{18}
+	return file_settled_v1_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetByKeyResponse) GetEntries() []*Entry {
@@ -1193,7 +1283,11 @@ const file_settled_v1_proto_rawDesc = "" +
 	"\aold_sth\x18\x04 \x01(\v2\x1a.settled.v1.SignedTreeHeadR\x06oldSth\x123\n" +
 	"\anew_sth\x18\x05 \x01(\v2\x1a.settled.v1.SignedTreeHeadR\x06newSth\")\n" +
 	"\fWatchRequest\x12\x19\n" +
-	"\bfrom_seq\x18\x01 \x01(\x04R\afromSeq\"t\n" +
+	"\bfrom_seq\x18\x01 \x01(\x04R\afromSeq\"I\n" +
+	"\x12BatchAppendRequest\x123\n" +
+	"\aentries\x18\x01 \x03(\v2\x19.settled.v1.AppendRequestR\aentries\"K\n" +
+	"\x13BatchAppendResponse\x124\n" +
+	"\aentries\x18\x01 \x03(\v2\x1a.settled.v1.AppendResponseR\aentries\"t\n" +
 	"\x12ListEntriesRequest\x12\x19\n" +
 	"\bfrom_seq\x18\x01 \x01(\x04R\afromSeq\x12\x15\n" +
 	"\x06to_seq\x18\x02 \x01(\x04R\x05toSeq\x12\x16\n" +
@@ -1210,11 +1304,12 @@ const file_settled_v1_proto_rawDesc = "" +
 	"\x10GetByKeyResponse\x12+\n" +
 	"\aentries\x18\x01 \x03(\v2\x11.settled.v1.EntryR\aentries\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\x04R\n" +
-	"nextCursor2\x97\x05\n" +
+	"nextCursor2\xe7\x05\n" +
 	"\n" +
 	"SettledLog\x12?\n" +
 	"\x06Append\x12\x19.settled.v1.AppendRequest\x1a\x1a.settled.v1.AppendResponse\x126\n" +
-	"\x03Get\x12\x16.settled.v1.GetRequest\x1a\x17.settled.v1.GetResponse\x12H\n" +
+	"\x03Get\x12\x16.settled.v1.GetRequest\x1a\x17.settled.v1.GetResponse\x12N\n" +
+	"\vBatchAppend\x12\x1e.settled.v1.BatchAppendRequest\x1a\x1f.settled.v1.BatchAppendResponse\x12H\n" +
 	"\tGetLatest\x12\x1c.settled.v1.GetLatestRequest\x1a\x1d.settled.v1.GetLatestResponse\x126\n" +
 	"\x05Watch\x12\x18.settled.v1.WatchRequest\x1a\x11.settled.v1.Entry0\x01\x12N\n" +
 	"\vListEntries\x12\x1e.settled.v1.ListEntriesRequest\x1a\x1f.settled.v1.ListEntriesResponse\x12E\n" +
@@ -1235,7 +1330,7 @@ func file_settled_v1_proto_rawDescGZIP() []byte {
 	return file_settled_v1_proto_rawDescData
 }
 
-var file_settled_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_settled_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_settled_v1_proto_goTypes = []any{
 	(*AppendRequest)(nil),            // 0: settled.v1.AppendRequest
 	(*AppendResponse)(nil),           // 1: settled.v1.AppendResponse
@@ -1252,10 +1347,12 @@ var file_settled_v1_proto_goTypes = []any{
 	(*ConsistencyProofRequest)(nil),  // 12: settled.v1.ConsistencyProofRequest
 	(*ConsistencyProofResponse)(nil), // 13: settled.v1.ConsistencyProofResponse
 	(*WatchRequest)(nil),             // 14: settled.v1.WatchRequest
-	(*ListEntriesRequest)(nil),       // 15: settled.v1.ListEntriesRequest
-	(*ListEntriesResponse)(nil),      // 16: settled.v1.ListEntriesResponse
-	(*GetByKeyRequest)(nil),          // 17: settled.v1.GetByKeyRequest
-	(*GetByKeyResponse)(nil),         // 18: settled.v1.GetByKeyResponse
+	(*BatchAppendRequest)(nil),       // 15: settled.v1.BatchAppendRequest
+	(*BatchAppendResponse)(nil),      // 16: settled.v1.BatchAppendResponse
+	(*ListEntriesRequest)(nil),       // 17: settled.v1.ListEntriesRequest
+	(*ListEntriesResponse)(nil),      // 18: settled.v1.ListEntriesResponse
+	(*GetByKeyRequest)(nil),          // 19: settled.v1.GetByKeyRequest
+	(*GetByKeyResponse)(nil),         // 20: settled.v1.GetByKeyResponse
 }
 var file_settled_v1_proto_depIdxs = []int32{
 	3,  // 0: settled.v1.GetResponse.entry:type_name -> settled.v1.Entry
@@ -1264,31 +1361,35 @@ var file_settled_v1_proto_depIdxs = []int32{
 	7,  // 3: settled.v1.InclusionProofResponse.sth:type_name -> settled.v1.SignedTreeHead
 	7,  // 4: settled.v1.ConsistencyProofResponse.old_sth:type_name -> settled.v1.SignedTreeHead
 	7,  // 5: settled.v1.ConsistencyProofResponse.new_sth:type_name -> settled.v1.SignedTreeHead
-	3,  // 6: settled.v1.ListEntriesResponse.entries:type_name -> settled.v1.Entry
-	3,  // 7: settled.v1.GetByKeyResponse.entries:type_name -> settled.v1.Entry
-	0,  // 8: settled.v1.SettledLog.Append:input_type -> settled.v1.AppendRequest
-	2,  // 9: settled.v1.SettledLog.Get:input_type -> settled.v1.GetRequest
-	5,  // 10: settled.v1.SettledLog.GetLatest:input_type -> settled.v1.GetLatestRequest
-	14, // 11: settled.v1.SettledLog.Watch:input_type -> settled.v1.WatchRequest
-	15, // 12: settled.v1.SettledLog.ListEntries:input_type -> settled.v1.ListEntriesRequest
-	17, // 13: settled.v1.SettledLog.GetByKey:input_type -> settled.v1.GetByKeyRequest
-	8,  // 14: settled.v1.SettledLog.GetSth:input_type -> settled.v1.GetSthRequest
-	10, // 15: settled.v1.SettledLog.InclusionProof:input_type -> settled.v1.InclusionProofRequest
-	12, // 16: settled.v1.SettledLog.ConsistencyProof:input_type -> settled.v1.ConsistencyProofRequest
-	1,  // 17: settled.v1.SettledLog.Append:output_type -> settled.v1.AppendResponse
-	4,  // 18: settled.v1.SettledLog.Get:output_type -> settled.v1.GetResponse
-	6,  // 19: settled.v1.SettledLog.GetLatest:output_type -> settled.v1.GetLatestResponse
-	3,  // 20: settled.v1.SettledLog.Watch:output_type -> settled.v1.Entry
-	16, // 21: settled.v1.SettledLog.ListEntries:output_type -> settled.v1.ListEntriesResponse
-	18, // 22: settled.v1.SettledLog.GetByKey:output_type -> settled.v1.GetByKeyResponse
-	9,  // 23: settled.v1.SettledLog.GetSth:output_type -> settled.v1.GetSthResponse
-	11, // 24: settled.v1.SettledLog.InclusionProof:output_type -> settled.v1.InclusionProofResponse
-	13, // 25: settled.v1.SettledLog.ConsistencyProof:output_type -> settled.v1.ConsistencyProofResponse
-	17, // [17:26] is the sub-list for method output_type
-	8,  // [8:17] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 6: settled.v1.BatchAppendRequest.entries:type_name -> settled.v1.AppendRequest
+	1,  // 7: settled.v1.BatchAppendResponse.entries:type_name -> settled.v1.AppendResponse
+	3,  // 8: settled.v1.ListEntriesResponse.entries:type_name -> settled.v1.Entry
+	3,  // 9: settled.v1.GetByKeyResponse.entries:type_name -> settled.v1.Entry
+	0,  // 10: settled.v1.SettledLog.Append:input_type -> settled.v1.AppendRequest
+	2,  // 11: settled.v1.SettledLog.Get:input_type -> settled.v1.GetRequest
+	15, // 12: settled.v1.SettledLog.BatchAppend:input_type -> settled.v1.BatchAppendRequest
+	5,  // 13: settled.v1.SettledLog.GetLatest:input_type -> settled.v1.GetLatestRequest
+	14, // 14: settled.v1.SettledLog.Watch:input_type -> settled.v1.WatchRequest
+	17, // 15: settled.v1.SettledLog.ListEntries:input_type -> settled.v1.ListEntriesRequest
+	19, // 16: settled.v1.SettledLog.GetByKey:input_type -> settled.v1.GetByKeyRequest
+	8,  // 17: settled.v1.SettledLog.GetSth:input_type -> settled.v1.GetSthRequest
+	10, // 18: settled.v1.SettledLog.InclusionProof:input_type -> settled.v1.InclusionProofRequest
+	12, // 19: settled.v1.SettledLog.ConsistencyProof:input_type -> settled.v1.ConsistencyProofRequest
+	1,  // 20: settled.v1.SettledLog.Append:output_type -> settled.v1.AppendResponse
+	4,  // 21: settled.v1.SettledLog.Get:output_type -> settled.v1.GetResponse
+	16, // 22: settled.v1.SettledLog.BatchAppend:output_type -> settled.v1.BatchAppendResponse
+	6,  // 23: settled.v1.SettledLog.GetLatest:output_type -> settled.v1.GetLatestResponse
+	3,  // 24: settled.v1.SettledLog.Watch:output_type -> settled.v1.Entry
+	18, // 25: settled.v1.SettledLog.ListEntries:output_type -> settled.v1.ListEntriesResponse
+	20, // 26: settled.v1.SettledLog.GetByKey:output_type -> settled.v1.GetByKeyResponse
+	9,  // 27: settled.v1.SettledLog.GetSth:output_type -> settled.v1.GetSthResponse
+	11, // 28: settled.v1.SettledLog.InclusionProof:output_type -> settled.v1.InclusionProofResponse
+	13, // 29: settled.v1.SettledLog.ConsistencyProof:output_type -> settled.v1.ConsistencyProofResponse
+	20, // [20:30] is the sub-list for method output_type
+	10, // [10:20] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_settled_v1_proto_init() }
@@ -1302,7 +1403,7 @@ func file_settled_v1_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_settled_v1_proto_rawDesc), len(file_settled_v1_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -10,12 +10,16 @@ use tonic::{Request, Response, Status};
 use crate::error::Error;
 use crate::proto::settled_log_server::SettledLog;
 use crate::proto::{
-    AppendRequest, AppendResponse, ConsistencyProofRequest, ConsistencyProofResponse, Entry,
-    GetByKeyRequest, GetByKeyResponse, GetLatestRequest, GetLatestResponse, GetRequest,
-    GetResponse, GetSthRequest, GetSthResponse, InclusionProofRequest, InclusionProofResponse,
-    ListEntriesRequest, ListEntriesResponse, SignedTreeHead as ProtoSth, WatchRequest,
+    AppendRequest, AppendResponse, BatchAppendRequest, BatchAppendResponse,
+    ConsistencyProofRequest, ConsistencyProofResponse, Entry, GetByKeyRequest, GetByKeyResponse,
+    GetLatestRequest, GetLatestResponse, GetRequest, GetResponse, GetSthRequest, GetSthResponse,
+    InclusionProofRequest, InclusionProofResponse, ListEntriesRequest, ListEntriesResponse,
+    SignedTreeHead as ProtoSth, WatchRequest,
 };
 use crate::state::AppState;
+
+/// Maximum entries in a single BatchAppend call.
+const MAX_BATCH: usize = 1000;
 
 /// Maximum number of entries returnable by a single GetByKey call.
 const MAX_BY_KEY: u32 = 1000;
@@ -97,6 +101,74 @@ impl SettledLog for SettledService {
             leaf_hash: lh.to_vec(),
             key: req.key,
         }))
+    }
+
+    async fn batch_append(
+        &self,
+        request: Request<BatchAppendRequest>,
+    ) -> Result<Response<BatchAppendResponse>, Status> {
+        let req = request.into_inner();
+        let n = req.entries.len();
+
+        if n == 0 {
+            return Ok(Response::new(BatchAppendResponse { entries: vec![] }));
+        }
+        if n > MAX_BATCH {
+            return Err(Status::from(Error::InvalidArgument(format!(
+                "batch size {n} exceeds maximum {MAX_BATCH}"
+            ))));
+        }
+
+        if let Some(ref limiter) = self.state.rate_limiter {
+            if !limiter.try_consume_n(n as u32) {
+                return Err(Status::resource_exhausted(
+                    "append rate limit exceeded; slow down",
+                ));
+            }
+        }
+
+        let pairs: Vec<(&[u8], &[u8])> = req
+            .entries
+            .iter()
+            .map(|e| (e.key.as_slice(), e.data.as_slice()))
+            .collect();
+
+        let timer = crate::metrics::APPEND_DURATION.start_timer();
+        let results = {
+            let mut mu = self.state.append_mu.lock().unwrap();
+            let results = self
+                .state
+                .log
+                .append_batch(&pairs)
+                .map_err(|e| Status::from(Error::Storage(e)))?;
+            for &(_, _, lh) in &results {
+                mu.merkle.append(lh);
+            }
+            results
+        };
+        timer.observe_duration();
+        crate::metrics::ENTRIES_APPENDED.inc_by(n as u64);
+
+        tracing::debug!(n, first_seq = results[0].0, "batch appended");
+
+        let mut entries = Vec::with_capacity(n);
+        for (orig, (seq, timestamp_ns, lh)) in req.entries.iter().zip(results.iter()) {
+            let _ = self.state.watch_tx.send(Entry {
+                seq: *seq,
+                timestamp_ns: *timestamp_ns,
+                key: orig.key.clone(),
+                data: orig.data.clone(),
+                leaf_hash: lh.to_vec(),
+            });
+            entries.push(AppendResponse {
+                seq: *seq,
+                timestamp_ns: *timestamp_ns,
+                leaf_hash: lh.to_vec(),
+                key: orig.key.clone(),
+            });
+        }
+
+        Ok(Response::new(BatchAppendResponse { entries }))
     }
 
     async fn get(&self, request: Request<GetRequest>) -> Result<Response<GetResponse>, Status> {

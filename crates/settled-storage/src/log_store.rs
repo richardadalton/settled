@@ -48,6 +48,47 @@ impl LogStore {
         Ok((seq, timestamp_ns))
     }
 
+    /// Append multiple entries atomically. Seqs are assigned contiguously and
+    /// all entries land in a single RocksDB `WriteBatch` (one WAL write).
+    /// Returns `(seq, timestamp_ns, leaf_hash)` for each entry in input order.
+    pub fn append_batch(&self, entries: &[(&[u8], &[u8])]) -> Result<Vec<(u64, i64, [u8; 32])>> {
+        if entries.is_empty() {
+            return Ok(Vec::new());
+        }
+        let n = entries.len() as u64;
+        let first_seq = self.0.next_seq.fetch_add(n, Ordering::SeqCst);
+        let timestamp_ns = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as i64;
+
+        let cf_log = self.0.db.cf_handle(CF_LOG).expect("log CF must exist");
+        let cf_index = self.0.db.cf_handle(CF_INDEX).expect("index CF must exist");
+
+        let mut batch = WriteBatch::default();
+        let mut results = Vec::with_capacity(entries.len());
+
+        for (i, (key, data)) in entries.iter().enumerate() {
+            let seq = first_seq + i as u64;
+            let leaf_hash = settled_core::hash::leaf_hash(data);
+            let proto = LogEntryProto {
+                seq,
+                timestamp_ns,
+                key: key.to_vec(),
+                data: data.to_vec(),
+                leaf_hash: leaf_hash.to_vec(),
+            };
+            let mut value_buf = Vec::new();
+            proto.encode(&mut value_buf)?;
+            batch.put_cf(cf_log, seq.to_be_bytes(), &value_buf);
+            // Last write with a given key wins — correct for the index CF.
+            batch.put_cf(cf_index, key, seq.to_be_bytes());
+            results.push((seq, timestamp_ns, leaf_hash));
+        }
+        self.0.db.write(batch)?;
+        Ok(results)
+    }
+
     /// Returns the total number of entries durably stored (O(1)).
     pub fn count(&self) -> u64 {
         self.0.next_seq.load(Ordering::SeqCst)

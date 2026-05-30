@@ -123,6 +123,33 @@ export class SettledClient {
     });
   }
 
+  /**
+   * Append multiple entries atomically. Seqs are assigned contiguously and
+   * written to the WAL in a single batch. Capped at 1000 entries per call.
+   * Returns one `AppendResult` per entry in the same order.
+   */
+  batchAppend(entries: Array<{ key: Uint8Array; data: Uint8Array }>): Promise<AppendResult[]> {
+    return new Promise((resolve, reject) => {
+      (this.stub as unknown as Record<string, Function>)['batchAppend'](
+        { entries },
+        this.metadata,
+        (err: grpc.ServiceError | null, res: Record<string, unknown>) => {
+          if (err) return reject(err);
+          const results = ((res['entries'] as unknown[]) ?? []).map((raw) => {
+            const r = raw as Record<string, unknown>;
+            return {
+              seq: toBigInt(r['seq']),
+              timestampNs: toBigInt(r['timestamp_ns']),
+              leafHash: toBytes(r['leaf_hash']),
+              key: toBytes(r['key']),
+            } satisfies AppendResult;
+          });
+          resolve(results);
+        },
+      );
+    });
+  }
+
   get(seq: bigint): Promise<Entry> {
     return new Promise((resolve, reject) => {
       (this.stub as unknown as Record<string, Function>)['get'](

@@ -118,6 +118,25 @@ func New(addr string, opts ...Option) (*SettledClient, error) {
 // Close closes the underlying connection.
 func (c *SettledClient) Close() error { return c.conn.Close() }
 
+// BatchAppend appends multiple entries atomically. Seqs are assigned
+// contiguously and written to the WAL in a single batch. Capped at 1000
+// entries per call. Returns one AppendResult per entry in the same order.
+func (c *SettledClient) BatchAppend(ctx context.Context, entries []AppendEntry) ([]*AppendResult, error) {
+	pbEntries := make([]*pb.AppendRequest, len(entries))
+	for i, e := range entries {
+		pbEntries[i] = &pb.AppendRequest{Key: e.Key, Data: e.Data}
+	}
+	res, err := c.stub.BatchAppend(ctx, &pb.BatchAppendRequest{Entries: pbEntries})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*AppendResult, len(res.Entries))
+	for i, r := range res.Entries {
+		out[i] = &AppendResult{Seq: r.Seq, TimestampNs: r.TimestampNs, LeafHash: r.LeafHash, Key: r.Key}
+	}
+	return out, nil
+}
+
 // Append appends an entry and returns its sequence number and leaf hash.
 func (c *SettledClient) Append(ctx context.Context, key, data []byte) (*AppendResult, error) {
 	res, err := c.stub.Append(ctx, &pb.AppendRequest{Key: key, Data: data})

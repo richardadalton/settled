@@ -174,6 +174,31 @@ class SettledClient:
                 leaf_hash=bytes(e.leaf_hash),
             )
 
+    def batch_append(self, entries: list[tuple[bytes, bytes]]) -> list[AppendResult]:
+        """Append multiple entries atomically.
+
+        Seqs are assigned contiguously and written to the WAL in a single
+        batch.  Capped at 1000 entries per call.  Returns one
+        :class:`AppendResult` per entry in the same order.
+        """
+        from settled.proto import settled_v1_pb2  # type: ignore[import]
+        pb_entries = [
+            settled_v1_pb2.AppendRequest(key=k, data=d) for k, d in entries
+        ]
+        res = self._stub.BatchAppend(
+            settled_v1_pb2.BatchAppendRequest(entries=pb_entries),
+            metadata=self._metadata,
+        )
+        return [
+            AppendResult(
+                seq=r.seq,
+                timestamp_ns=r.timestamp_ns,
+                leaf_hash=bytes(r.leaf_hash),
+                key=bytes(r.key),
+            )
+            for r in res.entries
+        ]
+
     def get_by_key(
         self,
         key: bytes,

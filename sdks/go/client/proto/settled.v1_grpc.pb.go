@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	SettledLog_Append_FullMethodName           = "/settled.v1.SettledLog/Append"
 	SettledLog_Get_FullMethodName              = "/settled.v1.SettledLog/Get"
+	SettledLog_BatchAppend_FullMethodName      = "/settled.v1.SettledLog/BatchAppend"
 	SettledLog_GetLatest_FullMethodName        = "/settled.v1.SettledLog/GetLatest"
 	SettledLog_Watch_FullMethodName            = "/settled.v1.SettledLog/Watch"
 	SettledLog_ListEntries_FullMethodName      = "/settled.v1.SettledLog/ListEntries"
@@ -38,6 +39,10 @@ type SettledLogClient interface {
 	Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
 	// Retrieve a single entry by sequence number.
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	// Append multiple entries atomically: all seqs are assigned contiguously and
+	// written to the WAL in a single batch. Returns one AppendResponse per entry
+	// in the same order. Capped at 1000 entries per call.
+	BatchAppend(ctx context.Context, in *BatchAppendRequest, opts ...grpc.CallOption) (*BatchAppendResponse, error)
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResponse, error)
@@ -82,6 +87,16 @@ func (c *settledLogClient) Get(ctx context.Context, in *GetRequest, opts ...grpc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetResponse)
 	err := c.cc.Invoke(ctx, SettledLog_Get_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *settledLogClient) BatchAppend(ctx context.Context, in *BatchAppendRequest, opts ...grpc.CallOption) (*BatchAppendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchAppendResponse)
+	err := c.cc.Invoke(ctx, SettledLog_BatchAppend_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +190,10 @@ type SettledLogServer interface {
 	Append(context.Context, *AppendRequest) (*AppendResponse, error)
 	// Retrieve a single entry by sequence number.
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	// Append multiple entries atomically: all seqs are assigned contiguously and
+	// written to the WAL in a single batch. Returns one AppendResponse per entry
+	// in the same order. Capped at 1000 entries per call.
+	BatchAppend(context.Context, *BatchAppendRequest) (*BatchAppendResponse, error)
 	// Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
 	// Returns durably-stored entries; they may not yet be sealed in the latest STH.
 	GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error)
@@ -210,6 +229,9 @@ func (UnimplementedSettledLogServer) Append(context.Context, *AppendRequest) (*A
 }
 func (UnimplementedSettledLogServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedSettledLogServer) BatchAppend(context.Context, *BatchAppendRequest) (*BatchAppendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchAppend not implemented")
 }
 func (UnimplementedSettledLogServer) GetLatest(context.Context, *GetLatestRequest) (*GetLatestResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLatest not implemented")
@@ -285,6 +307,24 @@ func _SettledLog_Get_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SettledLogServer).Get(ctx, req.(*GetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SettledLog_BatchAppend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchAppendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SettledLogServer).BatchAppend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SettledLog_BatchAppend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SettledLogServer).BatchAppend(ctx, req.(*BatchAppendRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -422,6 +462,10 @@ var SettledLog_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _SettledLog_Get_Handler,
+		},
+		{
+			MethodName: "BatchAppend",
+			Handler:    _SettledLog_BatchAppend_Handler,
 		},
 		{
 			MethodName: "GetLatest",

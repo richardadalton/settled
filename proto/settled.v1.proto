@@ -129,6 +129,18 @@ message WatchRequest {
   uint64 from_seq = 1;
 }
 
+// ── Batch Append ─────────────────────────────────────────────────────────────
+
+message BatchAppendRequest {
+  // Maximum batch size is 1000 entries; larger requests are rejected.
+  repeated AppendRequest entries = 1;
+}
+
+message BatchAppendResponse {
+  // One AppendResponse per request entry, in the same order.
+  repeated AppendResponse entries = 1;
+}
+
 // ── List Entries ─────────────────────────────────────────────────────────────
 
 message ListEntriesRequest {
@@ -172,6 +184,11 @@ service SettledLog {
 
   // Retrieve a single entry by sequence number.
   rpc Get(GetRequest) returns (GetResponse);
+
+  // Append multiple entries atomically: all seqs are assigned contiguously and
+  // written to the WAL in a single batch. Returns one AppendResponse per entry
+  // in the same order. Capped at 1000 entries per call.
+  rpc BatchAppend(BatchAppendRequest) returns (BatchAppendResponse);
 
   // Retrieve the most-recent N entries (newest first). n == 0 is treated as 1.
   // Returns durably-stored entries; they may not yet be sealed in the latest STH.

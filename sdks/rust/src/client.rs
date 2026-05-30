@@ -184,6 +184,35 @@ impl SettledClient {
         })
     }
 
+    /// Append multiple entries atomically. Seqs are assigned contiguously and
+    /// written to the WAL in a single batch. Capped at 1000 entries per call.
+    /// Returns one [`AppendResult`] per entry in the same order.
+    pub async fn batch_append(
+        &mut self,
+        entries: Vec<(Vec<u8>, Vec<u8>)>,
+    ) -> Result<Vec<AppendResult>, ClientError> {
+        let proto_entries = entries
+            .into_iter()
+            .map(|(key, data)| proto::AppendRequest { key, data })
+            .collect();
+        let r = self
+            .inner
+            .batch_append(self.make_request(proto::BatchAppendRequest {
+                entries: proto_entries,
+            }))
+            .await?
+            .into_inner();
+        Ok(r.entries
+            .into_iter()
+            .map(|e| AppendResult {
+                seq: e.seq,
+                timestamp_ns: e.timestamp_ns,
+                leaf_hash: e.leaf_hash,
+                key: e.key,
+            })
+            .collect())
+    }
+
     /// Retrieve a log entry by sequence number.
     pub async fn get(&mut self, seq: u64) -> Result<Entry, ClientError> {
         let r = self
