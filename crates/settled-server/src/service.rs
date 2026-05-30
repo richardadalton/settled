@@ -86,7 +86,7 @@ impl SettledLog for SettledService {
         let _ = self.state.watch_tx.send(Entry {
             seq,
             timestamp_ns,
-            key: req.key,
+            key: req.key.clone(),
             data: req.data,
             leaf_hash: lh.to_vec(),
         });
@@ -95,6 +95,7 @@ impl SettledLog for SettledService {
             seq,
             timestamp_ns,
             leaf_hash: lh.to_vec(),
+            key: req.key,
         }))
     }
 

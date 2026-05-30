@@ -64,7 +64,7 @@ public final class SettledClient implements Closeable {
 
     // ── Data types ────────────────────────────────────────────────────────────
 
-    public record AppendResult(long seq, long timestampNs, byte[] leafHash) {}
+    public record AppendResult(long seq, long timestampNs, byte[] leafHash, byte[] key) {}
 
     public record Entry(long seq, long timestampNs, byte[] key, byte[] data, byte[] leafHash) {}
 
@@ -116,7 +116,7 @@ public final class SettledClient implements Closeable {
                         .setKey(ByteString.copyFrom(key))
                         .setData(ByteString.copyFrom(data))
                         .build());
-        return new AppendResult(r.getSeq(), r.getTimestampNs(), r.getLeafHash().toByteArray());
+        return new AppendResult(r.getSeq(), r.getTimestampNs(), r.getLeafHash().toByteArray(), r.getKey().toByteArray());
     }
 
     /**

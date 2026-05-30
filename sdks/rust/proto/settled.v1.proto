@@ -24,6 +24,8 @@ message AppendResponse {
   int64  timestamp_ns = 2;
   // SHA-256(0x00 || data) — the leaf hash committed to in the Merkle tree.
   bytes  leaf_hash    = 3;
+  // Echo of the key from the request, for correlation in async clients.
+  bytes  key          = 4;
 }
 
 // ── Get ──────────────────────────────────────────────────────────────────────

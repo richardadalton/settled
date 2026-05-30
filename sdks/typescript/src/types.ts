@@ -19,6 +19,7 @@ export interface AppendResult {
   seq: bigint;
   timestampNs: bigint;
   leafHash: Uint8Array;
+  key: Uint8Array;
 }
 
 export interface InclusionProofResult {

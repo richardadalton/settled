@@ -18,6 +18,7 @@ class AppendResult:
     seq: int
     timestamp_ns: int
     leaf_hash: bytes
+    key: bytes
 
 
 @dataclass
@@ -112,6 +113,7 @@ class SettledClient:
             seq=res.seq,
             timestamp_ns=res.timestamp_ns,
             leaf_hash=bytes(res.leaf_hash),
+            key=bytes(res.key),
         )
 
     def get(self, seq: int) -> Entry:

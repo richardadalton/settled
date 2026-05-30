@@ -33,6 +33,7 @@ pub struct AppendResult {
     pub seq: u64,
     pub timestamp_ns: i64,
     pub leaf_hash: Vec<u8>,
+    pub key: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -179,6 +180,7 @@ impl SettledClient {
             seq: r.seq,
             timestamp_ns: r.timestamp_ns,
             leaf_hash: r.leaf_hash,
+            key: r.key,
         })
     }
 

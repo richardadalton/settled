@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1esettled/proto/settled_v1.proto\x12\nsettled.v1\"*\n\rAppendRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"F\n\x0e\x41ppendResponse\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x14\n\x0ctimestamp_ns\x18\x02 \x01(\x03\x12\x11\n\tleaf_hash\x18\x03 \x01(\x0c\"\x19\n\nGetRequest\x12\x0b\n\x03seq\x18\x01 \x01(\x04\"X\n\x05\x45ntry\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x14\n\x0ctimestamp_ns\x18\x02 \x01(\x03\x12\x0b\n\x03key\x18\x03 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x12\x11\n\tleaf_hash\x18\x05 \x01(\x0c\"/\n\x0bGetResponse\x12 \n\x05\x65ntry\x18\x01 \x01(\x0b\x32\x11.settled.v1.Entry\"\x1d\n\x10GetLatestRequest\x12\t\n\x01n\x18\x01 \x01(\r\"P\n\x11GetLatestResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x17\n\x0ftotal_available\x18\x02 \x01(\x04\"\x88\x01\n\x0eSignedTreeHead\x12\x11\n\ttree_size\x18\x01 \x01(\x04\x12\x11\n\troot_hash\x18\x02 \x01(\x0c\x12\x14\n\x0ctimestamp_ns\x18\x03 \x01(\x03\x12\x11\n\tsignature\x18\x04 \x01(\x0c\x12\x12\n\npublic_key\x18\x05 \x01(\x0c\x12\x13\n\x0bkey_version\x18\x06 \x01(\r\"\"\n\rGetSthRequest\x12\x11\n\ttree_size\x18\x01 \x01(\x04\"9\n\x0eGetSthResponse\x12\'\n\x03sth\x18\x01 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\"7\n\x15InclusionProofRequest\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x11\n\ttree_size\x18\x02 \x01(\x04\"w\n\x16InclusionProofResponse\x12\x12\n\nleaf_index\x18\x01 \x01(\x04\x12\x11\n\ttree_size\x18\x02 \x01(\x04\x12\r\n\x05proof\x18\x03 \x03(\x0c\x12\'\n\x03sth\x18\x04 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\"=\n\x17\x43onsistencyProofRequest\x12\x10\n\x08old_size\x18\x01 \x01(\x04\x12\x10\n\x08new_size\x18\x02 \x01(\x04\"\xa7\x01\n\x18\x43onsistencyProofResponse\x12\x10\n\x08old_size\x18\x01 \x01(\x04\x12\x10\n\x08new_size\x18\x02 \x01(\x04\x12\r\n\x05proof\x18\x03 \x03(\x0c\x12+\n\x07old_sth\x18\x04 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\x12+\n\x07new_sth\x18\x05 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\" \n\x0cWatchRequest\x12\x10\n\x08\x66rom_seq\x18\x01 \x01(\x04\"U\n\x12ListEntriesRequest\x12\x10\n\x08\x66rom_seq\x18\x01 \x01(\x04\x12\x0e\n\x06to_seq\x18\x02 \x01(\x04\x12\x0e\n\x06\x63ursor\x18\x03 \x01(\x04\x12\r\n\x05limit\x18\x04 \x01(\r\"N\n\x13ListEntriesResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x13\n\x0bnext_cursor\x18\x02 \x01(\x04\"=\n\x0fGetByKeyRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\x0e\n\x06\x63ursor\x18\x02 \x01(\x04\x12\r\n\x05limit\x18\x03 \x01(\r\"K\n\x10GetByKeyResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x13\n\x0bnext_cursor\x18\x02 \x01(\x04\x32\x97\x05\n\nSettledLog\x12?\n\x06\x41ppend\x12\x19.settled.v1.AppendRequest\x1a\x1a.settled.v1.AppendResponse\x12\x36\n\x03Get\x12\x16.settled.v1.GetRequest\x1a\x17.settled.v1.GetResponse\x12H\n\tGetLatest\x12\x1c.settled.v1.GetLatestRequest\x1a\x1d.settled.v1.GetLatestResponse\x12\x36\n\x05Watch\x12\x18.settled.v1.WatchRequest\x1a\x11.settled.v1.Entry0\x01\x12N\n\x0bListEntries\x12\x1e.settled.v1.ListEntriesRequest\x1a\x1f.settled.v1.ListEntriesResponse\x12\x45\n\x08GetByKey\x12\x1b.settled.v1.GetByKeyRequest\x1a\x1c.settled.v1.GetByKeyResponse\x12?\n\x06GetSth\x12\x19.settled.v1.GetSthRequest\x1a\x1a.settled.v1.GetSthResponse\x12W\n\x0eInclusionProof\x12!.settled.v1.InclusionProofRequest\x1a\".settled.v1.InclusionProofResponse\x12]\n\x10\x43onsistencyProof\x12#.settled.v1.ConsistencyProofRequest\x1a$.settled.v1.ConsistencyProofResponseB;Z9github.com/richardadalton/settled/sdks/go/client/proto;pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1esettled/proto/settled_v1.proto\x12\nsettled.v1\"*\n\rAppendRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"S\n\x0e\x41ppendResponse\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x14\n\x0ctimestamp_ns\x18\x02 \x01(\x03\x12\x11\n\tleaf_hash\x18\x03 \x01(\x0c\x12\x0b\n\x03key\x18\x04 \x01(\x0c\"\x19\n\nGetRequest\x12\x0b\n\x03seq\x18\x01 \x01(\x04\"X\n\x05\x45ntry\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x14\n\x0ctimestamp_ns\x18\x02 \x01(\x03\x12\x0b\n\x03key\x18\x03 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x12\x11\n\tleaf_hash\x18\x05 \x01(\x0c\"/\n\x0bGetResponse\x12 \n\x05\x65ntry\x18\x01 \x01(\x0b\x32\x11.settled.v1.Entry\"\x1d\n\x10GetLatestRequest\x12\t\n\x01n\x18\x01 \x01(\r\"P\n\x11GetLatestResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x17\n\x0ftotal_available\x18\x02 \x01(\x04\"\x88\x01\n\x0eSignedTreeHead\x12\x11\n\ttree_size\x18\x01 \x01(\x04\x12\x11\n\troot_hash\x18\x02 \x01(\x0c\x12\x14\n\x0ctimestamp_ns\x18\x03 \x01(\x03\x12\x11\n\tsignature\x18\x04 \x01(\x0c\x12\x12\n\npublic_key\x18\x05 \x01(\x0c\x12\x13\n\x0bkey_version\x18\x06 \x01(\r\"\"\n\rGetSthRequest\x12\x11\n\ttree_size\x18\x01 \x01(\x04\"9\n\x0eGetSthResponse\x12\'\n\x03sth\x18\x01 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\"7\n\x15InclusionProofRequest\x12\x0b\n\x03seq\x18\x01 \x01(\x04\x12\x11\n\ttree_size\x18\x02 \x01(\x04\"w\n\x16InclusionProofResponse\x12\x12\n\nleaf_index\x18\x01 \x01(\x04\x12\x11\n\ttree_size\x18\x02 \x01(\x04\x12\r\n\x05proof\x18\x03 \x03(\x0c\x12\'\n\x03sth\x18\x04 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\"=\n\x17\x43onsistencyProofRequest\x12\x10\n\x08old_size\x18\x01 \x01(\x04\x12\x10\n\x08new_size\x18\x02 \x01(\x04\"\xa7\x01\n\x18\x43onsistencyProofResponse\x12\x10\n\x08old_size\x18\x01 \x01(\x04\x12\x10\n\x08new_size\x18\x02 \x01(\x04\x12\r\n\x05proof\x18\x03 \x03(\x0c\x12+\n\x07old_sth\x18\x04 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\x12+\n\x07new_sth\x18\x05 \x01(\x0b\x32\x1a.settled.v1.SignedTreeHead\" \n\x0cWatchRequest\x12\x10\n\x08\x66rom_seq\x18\x01 \x01(\x04\"U\n\x12ListEntriesRequest\x12\x10\n\x08\x66rom_seq\x18\x01 \x01(\x04\x12\x0e\n\x06to_seq\x18\x02 \x01(\x04\x12\x0e\n\x06\x63ursor\x18\x03 \x01(\x04\x12\r\n\x05limit\x18\x04 \x01(\r\"N\n\x13ListEntriesResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x13\n\x0bnext_cursor\x18\x02 \x01(\x04\"=\n\x0fGetByKeyRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\x0e\n\x06\x63ursor\x18\x02 \x01(\x04\x12\r\n\x05limit\x18\x03 \x01(\r\"K\n\x10GetByKeyResponse\x12\"\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x11.settled.v1.Entry\x12\x13\n\x0bnext_cursor\x18\x02 \x01(\x04\x32\x97\x05\n\nSettledLog\x12?\n\x06\x41ppend\x12\x19.settled.v1.AppendRequest\x1a\x1a.settled.v1.AppendResponse\x12\x36\n\x03Get\x12\x16.settled.v1.GetRequest\x1a\x17.settled.v1.GetResponse\x12H\n\tGetLatest\x12\x1c.settled.v1.GetLatestRequest\x1a\x1d.settled.v1.GetLatestResponse\x12\x36\n\x05Watch\x12\x18.settled.v1.WatchRequest\x1a\x11.settled.v1.Entry0\x01\x12N\n\x0bListEntries\x12\x1e.settled.v1.ListEntriesRequest\x1a\x1f.settled.v1.ListEntriesResponse\x12\x45\n\x08GetByKey\x12\x1b.settled.v1.GetByKeyRequest\x1a\x1c.settled.v1.GetByKeyResponse\x12?\n\x06GetSth\x12\x19.settled.v1.GetSthRequest\x1a\x1a.settled.v1.GetSthResponse\x12W\n\x0eInclusionProof\x12!.settled.v1.InclusionProofRequest\x1a\".settled.v1.InclusionProofResponse\x12]\n\x10\x43onsistencyProof\x12#.settled.v1.ConsistencyProofRequest\x1a$.settled.v1.ConsistencyProofResponseB;Z9github.com/richardadalton/settled/sdks/go/client/proto;pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,41 +35,41 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_APPENDREQUEST']._serialized_start=46
   _globals['_APPENDREQUEST']._serialized_end=88
   _globals['_APPENDRESPONSE']._serialized_start=90
-  _globals['_APPENDRESPONSE']._serialized_end=160
-  _globals['_GETREQUEST']._serialized_start=162
-  _globals['_GETREQUEST']._serialized_end=187
-  _globals['_ENTRY']._serialized_start=189
-  _globals['_ENTRY']._serialized_end=277
-  _globals['_GETRESPONSE']._serialized_start=279
-  _globals['_GETRESPONSE']._serialized_end=326
-  _globals['_GETLATESTREQUEST']._serialized_start=328
-  _globals['_GETLATESTREQUEST']._serialized_end=357
-  _globals['_GETLATESTRESPONSE']._serialized_start=359
-  _globals['_GETLATESTRESPONSE']._serialized_end=439
-  _globals['_SIGNEDTREEHEAD']._serialized_start=442
-  _globals['_SIGNEDTREEHEAD']._serialized_end=578
-  _globals['_GETSTHREQUEST']._serialized_start=580
-  _globals['_GETSTHREQUEST']._serialized_end=614
-  _globals['_GETSTHRESPONSE']._serialized_start=616
-  _globals['_GETSTHRESPONSE']._serialized_end=673
-  _globals['_INCLUSIONPROOFREQUEST']._serialized_start=675
-  _globals['_INCLUSIONPROOFREQUEST']._serialized_end=730
-  _globals['_INCLUSIONPROOFRESPONSE']._serialized_start=732
-  _globals['_INCLUSIONPROOFRESPONSE']._serialized_end=851
-  _globals['_CONSISTENCYPROOFREQUEST']._serialized_start=853
-  _globals['_CONSISTENCYPROOFREQUEST']._serialized_end=914
-  _globals['_CONSISTENCYPROOFRESPONSE']._serialized_start=917
-  _globals['_CONSISTENCYPROOFRESPONSE']._serialized_end=1084
-  _globals['_WATCHREQUEST']._serialized_start=1086
-  _globals['_WATCHREQUEST']._serialized_end=1118
-  _globals['_LISTENTRIESREQUEST']._serialized_start=1120
-  _globals['_LISTENTRIESREQUEST']._serialized_end=1205
-  _globals['_LISTENTRIESRESPONSE']._serialized_start=1207
-  _globals['_LISTENTRIESRESPONSE']._serialized_end=1285
-  _globals['_GETBYKEYREQUEST']._serialized_start=1287
-  _globals['_GETBYKEYREQUEST']._serialized_end=1348
-  _globals['_GETBYKEYRESPONSE']._serialized_start=1350
-  _globals['_GETBYKEYRESPONSE']._serialized_end=1425
-  _globals['_SETTLEDLOG']._serialized_start=1428
-  _globals['_SETTLEDLOG']._serialized_end=2091
+  _globals['_APPENDRESPONSE']._serialized_end=173
+  _globals['_GETREQUEST']._serialized_start=175
+  _globals['_GETREQUEST']._serialized_end=200
+  _globals['_ENTRY']._serialized_start=202
+  _globals['_ENTRY']._serialized_end=290
+  _globals['_GETRESPONSE']._serialized_start=292
+  _globals['_GETRESPONSE']._serialized_end=339
+  _globals['_GETLATESTREQUEST']._serialized_start=341
+  _globals['_GETLATESTREQUEST']._serialized_end=370
+  _globals['_GETLATESTRESPONSE']._serialized_start=372
+  _globals['_GETLATESTRESPONSE']._serialized_end=452
+  _globals['_SIGNEDTREEHEAD']._serialized_start=455
+  _globals['_SIGNEDTREEHEAD']._serialized_end=591
+  _globals['_GETSTHREQUEST']._serialized_start=593
+  _globals['_GETSTHREQUEST']._serialized_end=627
+  _globals['_GETSTHRESPONSE']._serialized_start=629
+  _globals['_GETSTHRESPONSE']._serialized_end=686
+  _globals['_INCLUSIONPROOFREQUEST']._serialized_start=688
+  _globals['_INCLUSIONPROOFREQUEST']._serialized_end=743
+  _globals['_INCLUSIONPROOFRESPONSE']._serialized_start=745
+  _globals['_INCLUSIONPROOFRESPONSE']._serialized_end=864
+  _globals['_CONSISTENCYPROOFREQUEST']._serialized_start=866
+  _globals['_CONSISTENCYPROOFREQUEST']._serialized_end=927
+  _globals['_CONSISTENCYPROOFRESPONSE']._serialized_start=930
+  _globals['_CONSISTENCYPROOFRESPONSE']._serialized_end=1097
+  _globals['_WATCHREQUEST']._serialized_start=1099
+  _globals['_WATCHREQUEST']._serialized_end=1131
+  _globals['_LISTENTRIESREQUEST']._serialized_start=1133
+  _globals['_LISTENTRIESREQUEST']._serialized_end=1218
+  _globals['_LISTENTRIESRESPONSE']._serialized_start=1220
+  _globals['_LISTENTRIESRESPONSE']._serialized_end=1298
+  _globals['_GETBYKEYREQUEST']._serialized_start=1300
+  _globals['_GETBYKEYREQUEST']._serialized_end=1361
+  _globals['_GETBYKEYRESPONSE']._serialized_start=1363
+  _globals['_GETBYKEYRESPONSE']._serialized_end=1438
+  _globals['_SETTLEDLOG']._serialized_start=1441
+  _globals['_SETTLEDLOG']._serialized_end=2104
 # @@protoc_insertion_point(module_scope)

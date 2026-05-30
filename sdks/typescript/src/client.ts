@@ -116,6 +116,7 @@ export class SettledClient {
             seq: toBigInt(res['seq']),
             timestampNs: toBigInt(res['timestamp_ns']),
             leafHash: toBytes(res['leaf_hash']),
+            key: toBytes(res['key']),
           });
         },
       );

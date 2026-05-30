@@ -52,6 +52,7 @@ type AppendResult struct {
 	Seq         uint64
 	TimestampNs int64
 	LeafHash    []byte
+	Key         []byte
 }
 
 // Entry is a single log entry.
@@ -123,7 +124,7 @@ func (c *SettledClient) Append(ctx context.Context, key, data []byte) (*AppendRe
 	if err != nil {
 		return nil, err
 	}
-	return &AppendResult{Seq: res.Seq, TimestampNs: res.TimestampNs, LeafHash: res.LeafHash}, nil
+	return &AppendResult{Seq: res.Seq, TimestampNs: res.TimestampNs, LeafHash: res.LeafHash, Key: res.Key}, nil
 }
 
 // Get retrieves a log entry by sequence number.

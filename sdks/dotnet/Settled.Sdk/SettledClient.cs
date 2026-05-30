@@ -10,6 +10,7 @@ public sealed class AppendResult
     public ulong Seq { get; init; }
     public long TimestampNs { get; init; }
     public byte[] LeafHash { get; init; } = [];
+    public byte[] Key { get; init; } = [];
 }
 
 public sealed class Entry
@@ -88,7 +89,7 @@ public sealed class SettledClient : IDisposable
     public async Task<AppendResult> AppendAsync(byte[] key, byte[] data, CancellationToken ct = default)
     {
         var res = await _stub.AppendAsync(new AppendRequest { Key = Google.Protobuf.ByteString.CopyFrom(key), Data = Google.Protobuf.ByteString.CopyFrom(data) }, headers: _headers, cancellationToken: ct);
-        return new AppendResult { Seq = res.Seq, TimestampNs = res.TimestampNs, LeafHash = res.LeafHash.ToByteArray() };
+        return new AppendResult { Seq = res.Seq, TimestampNs = res.TimestampNs, LeafHash = res.LeafHash.ToByteArray(), Key = res.Key.ToByteArray() };
     }
 
     public async Task<Entry> GetAsync(ulong seq, CancellationToken ct = default)

@@ -84,7 +84,9 @@ type AppendResponse struct {
 	// Nanoseconds since Unix epoch at which the entry was durably appended.
 	TimestampNs int64 `protobuf:"varint,2,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
 	// SHA-256(0x00 || data) — the leaf hash committed to in the Merkle tree.
-	LeafHash      []byte `protobuf:"bytes,3,opt,name=leaf_hash,json=leafHash,proto3" json:"leaf_hash,omitempty"`
+	LeafHash []byte `protobuf:"bytes,3,opt,name=leaf_hash,json=leafHash,proto3" json:"leaf_hash,omitempty"`
+	// Echo of the key from the request, for correlation in async clients.
+	Key           []byte `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,6 +138,13 @@ func (x *AppendResponse) GetTimestampNs() int64 {
 func (x *AppendResponse) GetLeafHash() []byte {
 	if x != nil {
 		return x.LeafHash
+	}
+	return nil
+}
+
+func (x *AppendResponse) GetKey() []byte {
+	if x != nil {
+		return x.Key
 	}
 	return nil
 }
@@ -1130,11 +1139,12 @@ const file_settled_v1_proto_rawDesc = "" +
 	"settled.v1\"5\n" +
 	"\rAppendRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\fR\x03key\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\"b\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"t\n" +
 	"\x0eAppendResponse\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12!\n" +
 	"\ftimestamp_ns\x18\x02 \x01(\x03R\vtimestampNs\x12\x1b\n" +
-	"\tleaf_hash\x18\x03 \x01(\fR\bleafHash\"\x1e\n" +
+	"\tleaf_hash\x18\x03 \x01(\fR\bleafHash\x12\x10\n" +
+	"\x03key\x18\x04 \x01(\fR\x03key\"\x1e\n" +
 	"\n" +
 	"GetRequest\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\"\x7f\n" +
