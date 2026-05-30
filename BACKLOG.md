@@ -39,22 +39,11 @@ The README claims 500K entries/sec throughput but there are no `benches/` direct
 
 ## Medium Priority
 
-### gRPC reflection not enabled
-Without reflection, `grpcurl` requires the proto file. This makes ad-hoc debugging significantly harder.
-- Enable `tonic-reflection` in `settled-server`
-- Document `grpcurl` usage in the README and deployment guide
-
 ### `settled-check` CLI is minimal
 One subcommand (`verify`) checks a live STH. No batch verification, no consistency check between two STHs, no offline export.
 - Add `settled-check consistency --server ... --old-size N --new-size M`
 - Add `settled-check export --server ... --from 0 --to 1000 --output entries.json`
 - Add `settled-check inspect-sth --file ./sth.json` (offline STH signature verification, no server needed)
-
-### Admin API has remaining gaps
-`GET /api/keys` and `POST /api/rotate-key` are implemented. Still missing:
-- Add `GET /api/sth` — current signed tree head as JSON
-- Add `GET /api/stats` — entry count, tree size, last STH timestamp
-- Add `POST /api/sth/force` — trigger an immediate STH signing cycle
 
 ### `AppendResponse` should echo the key
 The response contains `seq`, `timestamp_ns`, and `leaf_hash` but not `key`. Clients must carry the key themselves to correlate the receipt, which is error-prone in async code.
