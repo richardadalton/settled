@@ -56,12 +56,6 @@ One subcommand (`verify`) checks a live STH. No batch verification, no consisten
 - Add `GET /api/stats` — entry count, tree size, last STH timestamp
 - Add `POST /api/sth/force` — trigger an immediate STH signing cycle
 
-### Package name inconsistency — TypeScript SDK
-The npm package is `@daltonr/settled-sdk` (a personal scope). This looks wrong to users and becomes a problem if the project is handed off.
-- Rename to `@settled/sdk` or `settled-sdk`
-- Update all demos, the UI, and the README
-- Publish a deprecation notice on the old package name
-
 ### `AppendResponse` should echo the key
 The response contains `seq`, `timestamp_ns`, and `leaf_hash` but not `key`. Clients must carry the key themselves to correlate the receipt, which is error-prone in async code.
 - Add `bytes key` to `AppendResponse` in the proto
