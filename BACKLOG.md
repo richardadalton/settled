@@ -45,11 +45,6 @@ One subcommand (`verify`) checks a live STH. No batch verification, no consisten
 - Add `settled-check export --server ... --from 0 --to 1000 --output entries.json`
 - Add `settled-check inspect-sth --file ./sth.json` (offline STH signature verification, no server needed)
 
-### Prometheus metrics are sparse
-The admin `/metrics` endpoint exists but what is exported is undocumented and likely incomplete.
-- Ensure these metrics exist: `settled_append_total`, `settled_append_duration_seconds` (histogram), `settled_sth_signings_total`, `settled_tree_size`, `settled_rpc_errors_total` (by RPC name)
-- Add a Grafana dashboard JSON under `ops/grafana/`
-
 ---
 
 ## Documentation
