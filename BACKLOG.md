@@ -16,11 +16,11 @@ Core CI is in place (Rust, all 6 SDKs, test-vector drift check, cross-SDK intero
 
 ## High Priority
 
-### No rate limiting or resource limits on the server
-A single client can flood the WAL. `GetLatest(n=1000)` returns 1000 entries with no cost signal. No per-client or per-key quotas.
-- Add configurable per-connection write rate limit (token bucket in the gRPC interceptor)
-- Make the `GetLatest` cap configurable and return a `total_available` count so clients can paginate
-- Add request size limits beyond the existing 64 KB data limit
+### No per-client rate limiting
+A server-wide append rate limit (`--max-appends-per-sec`) exists but all clients share the same token bucket. One fast client can starve others.
+- Track append rate per remote IP in the interceptor (keyed by `peer_addr` from the connection extension)
+- Evict idle buckets periodically to bound memory
+- Consider a `--max-appends-per-ip` flag separate from the global cap
 
 ### No TLS support in the server binary
 The Dockerfile runs plain gRPC. The deployment docs say "add a sidecar proxy" but most cloud environments expect the binary to handle TLS directly.
