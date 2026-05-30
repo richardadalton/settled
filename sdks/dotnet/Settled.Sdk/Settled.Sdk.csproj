@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <PackageId>Settled.Sdk</PackageId>
     <Description>C# SDK for the Settled tamper-evident audit log — gRPC client and RFC 6962 Merkle proof verifier.</Description>
     <Authors>Richard Dalton</Authors>

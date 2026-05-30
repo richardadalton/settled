@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.github.richardadalton:settled-sdk:0.1.0'
+    implementation 'io.github.richardadalton:settled-sdk:0.2.0'
 }
 
 application {

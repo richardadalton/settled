@@ -2,7 +2,7 @@
 
 [package]
 name = "settled-sdk"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Rust SDK for the Settled tamper-evident audit log"
 repository = "https://github.com/richardadalton/settled"
