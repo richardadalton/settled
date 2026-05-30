@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use settled_server::proto::settled_log_server::SettledLogServer;
-use settled_server::{AppState, Config, SettledService};
+use settled_server::{AppState, Config, SettledService, FILE_DESCRIPTOR_SET};
 use tokio::net::TcpListener;
 use tonic::transport::Server;
 
@@ -160,12 +160,18 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    let reflection = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build_v1()
+        .expect("failed to build reflection service");
+
     Server::builder()
         .layer(interceptor)
         .add_service(
             SettledLogServer::new(SettledService::new(state))
                 .max_decoding_message_size(max_message_bytes),
         )
+        .add_service(reflection)
         .serve_with_shutdown(config.listen, shutdown_signal())
         .await?;
 

@@ -76,6 +76,40 @@ The data directory contains:
 | `--max-push-failures` | `6` | Consecutive push failures before a settled node is flagged dead |
 | `--push-timeout-ms` | `5000` | Per-attempt timeout when pushing STHs to settled nodes |
 | `--threshold` | `0` | Minimum counter-signatures required for a FinalSTH (0 = threshold disabled) |
+| `--max-appends-per-sec` | *(unset)* | Server-wide append rate limit (token bucket, requests/sec). Omit to allow unlimited writes. |
+| `--max-get-latest` | `1000` | Maximum entries `GetLatest` may return per call. |
+| `--max-message-bytes` | `4194304` | Maximum gRPC request size in bytes. Larger requests are rejected with `RESOURCE_EXHAUSTED`. |
+
+### Ad-hoc debugging with grpcurl
+
+The server exposes the standard [gRPC server reflection](https://grpc.io/docs/guides/reflection/) service, so `grpcurl` works without a proto file:
+
+```sh
+# Install grpcurl (macOS)
+brew install grpcurl
+
+# List all available RPC methods
+grpcurl -plaintext localhost:50051 list settled.v1.SettledLog
+
+# Describe a method's request/response shape
+grpcurl -plaintext localhost:50051 describe settled.v1.SettledLog.GetSth
+
+# Call GetSth (latest)
+grpcurl -plaintext -d '{"tree_size": 0}' localhost:50051 settled.v1.SettledLog/GetSth
+
+# Append an entry
+grpcurl -plaintext \
+  -d '{"key": "dXNlcjoxMjM=", "data": "bG9naW4="}' \
+  localhost:50051 settled.v1.SettledLog/Append
+
+# With an API key
+grpcurl -plaintext \
+  -H "authorization: Bearer $SETTLED_API_KEY" \
+  -d '{"tree_size": 0}' \
+  localhost:50051 settled.v1.SettledLog/GetSth
+```
+
+> **Note:** when `--api-key` is set, the reflection service also requires the key. This is intentional — schema information is protected by the same credentials as data access.
 
 ### Authentication
 

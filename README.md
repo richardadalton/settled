@@ -61,6 +61,18 @@ Verify the server is healthy:
 curl http://localhost:8080/health
 ```
 
+The server exposes gRPC reflection, so you can explore the API with `grpcurl` without a proto file:
+
+```sh
+# List all methods
+grpcurl -plaintext localhost:50051 list settled.v1.SettledLog
+
+# Fetch the latest Signed Tree Head
+grpcurl -plaintext -d '{"tree_size": 0}' localhost:50051 settled.v1.SettledLog/GetSth
+```
+
+See the [deployment guide](docs/deployment.md#ad-hoc-debugging-with-grpcurl) for more examples including authenticated requests.
+
 #### STH interval
 
 Writes and signing are decoupled. Every append is acknowledged and durably stored immediately — the Ed25519 signing step happens in the background on a separate timer, so write throughput is never blocked by cryptographic operations.
