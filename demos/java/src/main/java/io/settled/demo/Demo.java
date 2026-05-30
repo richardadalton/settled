@@ -8,6 +8,8 @@
  *   ./gradlew run --args='--verify --consistency'             # also verify consistency before→after append
  *   ./gradlew run --args='--get 3'                            # look up a single entry by seq
  *   ./gradlew run --args='--get 3 --verify'                   # look up + verify its inclusion proof
+ *   ./gradlew run --args='--key user:alice'                   # fetch all entries for a key (paginated)
+ *   ./gradlew run --args='--batch'                            # append all demo entries in one BatchAppend
  *   ./gradlew run --args='--watch'                            # tail new entries as they arrive
  *   ./gradlew run --args='--watch --verify'                   # tail + verify each new entry
  *   ./gradlew run --args='--host localhost:50051'             # connect to a non-default address
@@ -21,6 +23,7 @@ import io.settled.sdk.Verifier;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.StreamSupport;
 
 public class Demo {
 
@@ -45,6 +48,8 @@ public class Demo {
         boolean doVerify    = false;
         boolean doConsistency = false;
         Long    getSeq      = null;
+        String  keyFilter   = null;
+        boolean doBatch     = false;
         boolean doWatch     = false;
         double  interval    = 2.0;
 
@@ -55,6 +60,8 @@ public class Demo {
                 case "--verify"       -> doVerify      = true;
                 case "--consistency"  -> doConsistency = true;
                 case "--get"          -> getSeq        = Long.parseLong(args[++i]);
+                case "--key"          -> keyFilter     = args[++i];
+                case "--batch"        -> doBatch       = true;
                 case "--watch"        -> doWatch       = true;
                 case "--interval"     -> interval      = Double.parseDouble(args[++i]);
                 default -> { System.err.println("Unknown option: " + args[i]); System.exit(1); }
@@ -67,6 +74,10 @@ public class Demo {
                 modeWatch(client, doVerify, interval);
             } else if (getSeq != null) {
                 modeGet(client, getSeq, doVerify);
+            } else if (keyFilter != null) {
+                modeGetByKey(client, keyFilter);
+            } else if (doBatch) {
+                modeBatchAppend(client);
             } else {
                 modeDefault(client, doVerify, doConsistency, skipAppend);
             }
@@ -166,6 +177,51 @@ public class Demo {
 
     // ── Modes ─────────────────────────────────────────────────────────────────
 
+    private static List<Entry> fetchAllEntries(SettledClient client) {
+        List<Entry> entries = new ArrayList<>();
+        long cursor = 0;
+        while (true) {
+            ListEntriesResult page = client.listEntries(0, 0, cursor, 0);
+            entries.addAll(page.entries());
+            if (page.nextCursor() == 0) break;
+            cursor = page.nextCursor();
+        }
+        return entries;
+    }
+
+    private static void modeGetByKey(SettledClient client, String key) {
+        List<Entry> entries = new ArrayList<>();
+        long cursor = 0;
+        while (true) {
+            GetByKeyResult page = client.getByKey(key.getBytes(StandardCharsets.UTF_8), cursor, 0);
+            entries.addAll(page.entries());
+            if (page.nextCursor() == 0) break;
+            cursor = page.nextCursor();
+        }
+        int n = entries.size();
+        System.out.printf("%d entr%s for key %s:%n%n", n, n == 1 ? "y" : "ies", key);
+        String header = tableHeader(false);
+        System.out.println(header);
+        System.out.println("-".repeat(header.length()));
+        for (Entry e : entries) System.out.println(entryRow(e, ""));
+    }
+
+    private static void modeBatchAppend(SettledClient client) {
+        List<AppendEntry> batch = Arrays.stream(DEMO_ENTRIES)
+                .map(kv -> new AppendEntry(
+                        kv[0].getBytes(StandardCharsets.UTF_8),
+                        kv[1].getBytes(StandardCharsets.UTF_8)))
+                .toList();
+        System.out.printf("Batch-appending %d entries in one RPC call …%n", batch.size());
+        List<AppendResult> results = client.batchAppend(batch);
+        for (int i = 0; i < results.size(); i++) {
+            System.out.printf("  seq=%d  key=%s  data=%s%n",
+                    results.get(i).seq(), DEMO_ENTRIES[i][0], DEMO_ENTRIES[i][1]);
+        }
+        System.out.printf("%nAll %d entries assigned seqs %d–%d in a single WAL write.%n",
+                results.size(), results.get(0).seq(), results.get(results.size() - 1).seq());
+    }
+
     private static void modeGet(SettledClient client, long seq, boolean doVerify) throws InterruptedException {
         Entry e;
         try {
@@ -250,10 +306,7 @@ public class Demo {
         }
 
         System.out.println("Fetching audit trail …\n");
-        List<Entry> entries = new ArrayList<>();
-        for (long s = 0; s < sth.treeSize(); s++) {
-            entries.add(client.get(s));
-        }
+        List<Entry> entries = fetchAllEntries(client);
 
         Map<Long, Boolean> verified = null;
         if (doVerify) {

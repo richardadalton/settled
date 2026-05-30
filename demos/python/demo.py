@@ -9,13 +9,14 @@ Usage:
     python demo.py --verify --consistency     # also verify consistency before→after append
     python demo.py --get 3                    # look up a single entry by seq
     python demo.py --get 3 --verify           # look up + verify its inclusion proof
-    python demo.py --watch                    # tail new entries as they arrive
-    python demo.py --watch --verify           # tail + verify each new entry
+    python demo.py --key "user:alice"         # fetch all entries for a key (paginated)
+    python demo.py --batch                    # append 6 entries in one BatchAppend call
+    python demo.py --watch                    # stream new entries via Watch RPC
+    python demo.py --watch --verify           # stream + verify each new entry
 """
 
 import argparse
 import sys
-import time
 from datetime import datetime, timezone
 
 from settled import SettledClient, verify_consistency, verify_inclusion, verify_tree_head
@@ -77,6 +78,19 @@ def print_table(entries: list, verified: dict[int, bool] | None = None) -> None:
         if show_proof:
             proof_col = "  OK" if verified.get(e.seq) else "  FAIL"
         print(entry_row(e, proof_col))
+
+
+def fetch_all_entries(client: SettledClient) -> list:
+    """Fetch the full log using ListEntries cursor pagination."""
+    entries = []
+    cursor = 0
+    while True:
+        page = client.list_entries(cursor=cursor)
+        entries.extend(page.entries)
+        if page.next_cursor == 0:
+            break
+        cursor = page.next_cursor
+    return entries
 
 
 # ── Verification helpers ───────────────────────────────────────────────────────
@@ -143,27 +157,53 @@ def mode_get(client: SettledClient, seq: int, do_verify: bool) -> None:
     print(entry_row(e, proof_col))
 
 
-def mode_watch(client: SettledClient, do_verify: bool, interval: float) -> None:
-    print(f"Watching for new entries (polling every {interval}s) … Ctrl-C to stop.\n")
-    sth = client.get_sth()
-    seq = sth.tree_size
+def mode_get_by_key(client: SettledClient, key: str) -> None:
+    entries = []
+    cursor = 0
+    while True:
+        page = client.get_by_key(key.encode(), cursor=cursor)
+        entries.extend(page.entries)
+        if page.next_cursor == 0:
+            break
+        cursor = page.next_cursor
 
+    n = len(entries)
+    print(f"{n} entr{'y' if n == 1 else 'ies'} for key {key!r}:\n")
+    header = table_header()
+    print(header)
+    print("-" * len(header))
+    for e in entries:
+        print(entry_row(e))
+
+
+def mode_batch_append(client: SettledClient) -> None:
+    batch = [(k.encode(), d.encode()) for k, d in DEMO_ENTRIES]
+    print(f"Batch-appending {len(batch)} entries in one RPC call …")
+    results = client.batch_append(batch)
+    for r, (key, data) in zip(results, DEMO_ENTRIES):
+        print(f"  seq={r.seq}  key={key!r}  data={data!r}")
+    print(
+        f"\nAll {len(results)} entries assigned seqs "
+        f"{results[0].seq}–{results[-1].seq} in a single WAL write."
+    )
+
+
+def mode_watch(client: SettledClient, do_verify: bool) -> None:
+    print("Streaming new entries via Watch RPC … Ctrl-C to stop.\n")
     print(table_header(do_verify))
     print("-" * len(table_header(do_verify)))
-
     try:
-        while True:
-            sth = client.get_sth()
-            while seq < sth.tree_size:
-                e = client.get(seq)
-                proof_col = ""
-                if do_verify:
-                    p = client.inclusion_proof(seq, sth.tree_size)
-                    ok = verify_inclusion(e.leaf_hash, p.leaf_index, p.tree_size, p.proof, sth.root_hash)
+        for e in client.watch_entries(from_seq=0):
+            proof_col = ""
+            if do_verify:
+                sth = client.get_sth()
+                if e.seq < sth.tree_size:
+                    p = client.inclusion_proof(e.seq, sth.tree_size)
+                    ok = verify_inclusion(
+                        e.leaf_hash, p.leaf_index, p.tree_size, p.proof, sth.root_hash
+                    )
                     proof_col = "  OK" if ok else "  FAIL"
-                print(entry_row(e, proof_col))
-                seq += 1
-            time.sleep(interval)
+            print(entry_row(e, proof_col))
     except KeyboardInterrupt:
         print("\nStopped.")
 
@@ -184,7 +224,7 @@ def mode_default(client: SettledClient, do_verify: bool, do_consistency: bool, s
         sys.exit(0)
 
     print("Fetching audit trail …\n")
-    entries = [client.get(seq) for seq in range(sth.tree_size)]
+    entries = fetch_all_entries(client)
 
     verified = None
     if do_verify:
@@ -207,17 +247,23 @@ def main() -> None:
     parser.add_argument("--verify", action="store_true", help="Verify STH + inclusion proofs")
     parser.add_argument("--consistency", action="store_true", help="Verify consistency proof before→after append (requires --verify)")
     parser.add_argument("--get", type=int, metavar="SEQ", help="Fetch a single entry by sequence number")
-    parser.add_argument("--watch", action="store_true", help="Tail new entries as they arrive")
-    parser.add_argument("--interval", type=float, default=2.0, metavar="SECS", help="Polling interval for --watch (default: 2)")
+    parser.add_argument("--key", metavar="KEY", help="Fetch all entries for this key (paginated)")
+    parser.add_argument("--batch", action="store_true", help="Append all demo entries in one BatchAppend call")
+    parser.add_argument("--watch", action="store_true", help="Stream new entries via Watch RPC")
+    parser.add_argument("--interval", type=float, default=2.0, metavar="SECS", help="(unused — kept for compatibility)")
     args = parser.parse_args()
 
     print(f"Connecting to {args.host} …\n")
 
     with SettledClient(args.host) as client:
         if args.watch:
-            mode_watch(client, args.verify, args.interval)
+            mode_watch(client, args.verify)
         elif args.get is not None:
             mode_get(client, args.get, args.verify)
+        elif args.key is not None:
+            mode_get_by_key(client, args.key)
+        elif args.batch:
+            mode_batch_append(client)
         else:
             mode_default(client, args.verify, args.consistency, args.skip_append)
 

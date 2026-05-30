@@ -81,6 +81,9 @@ public final class SettledClient implements Closeable {
             long leafIndex, long treeSize, List<byte[]> proof, Sth sth) {}
 
     /** @param nextCursor pass as cursor in the next call; 0 = no more pages */
+    public record GetByKeyResult(List<Entry> entries, long nextCursor) {}
+
+    /** @param nextCursor pass as cursor in the next call; 0 = no more pages */
     public record ListEntriesResult(
             List<Entry> entries, long nextCursor) {}
 
@@ -169,6 +172,26 @@ public final class SettledClient implements Closeable {
      * pass nextCursor from the previous response to continue pagination.
      * limit == 0 uses the server default (50); values above 1000 are clamped.
      */
+    /**
+     * Return all entries for an exact key match, with cursor-based pagination.
+     * cursor=0 starts from the beginning; limit=0 uses the server default (50).
+     * nextCursor==0 in the result means no further pages.
+     */
+    public GetByKeyResult getByKey(byte[] key, long cursor, int limit) {
+        GetByKeyResponse r = stub.getByKey(
+                GetByKeyRequest.newBuilder()
+                        .setKey(ByteString.copyFrom(key))
+                        .setCursor(cursor)
+                        .setLimit(limit)
+                        .build());
+        List<Entry> entries = r.getEntriesList().stream()
+                .map(e -> new Entry(e.getSeq(), e.getTimestampNs(),
+                        e.getKey().toByteArray(), e.getData().toByteArray(),
+                        e.getLeafHash().toByteArray()))
+                .toList();
+        return new GetByKeyResult(entries, r.getNextCursor());
+    }
+
     public ListEntriesResult listEntries(long fromSeq, long toSeq, long cursor, int limit) {
         ListEntriesResponse r = stub.listEntries(
                 ListEntriesRequest.newBuilder()

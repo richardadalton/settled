@@ -8,8 +8,10 @@
  *   dotnet run -- --verify --consistency   # also verify consistency before→after append
  *   dotnet run -- --get 3                  # look up a single entry by seq
  *   dotnet run -- --get 3 --verify         # look up + verify its inclusion proof
- *   dotnet run -- --watch                  # tail new entries as they arrive
- *   dotnet run -- --watch --verify         # tail + verify each new entry
+ *   dotnet run -- --key "user:alice"       # fetch all entries for a key (paginated)
+ *   dotnet run -- --batch                  # append all demo entries in one BatchAppend call
+ *   dotnet run -- --watch                  # stream new entries via Watch RPC
+ *   dotnet run -- --watch --verify         # stream + verify each new entry
  *   dotnet run -- --host localhost:50051   # connect to a non-default address
  */
 
@@ -23,17 +25,28 @@ const int ColData = 20;
 const int ColTime = 20;
 const int ColHash = 18;
 
+(string Key, string Data)[] demoEntries =
+[
+    ("user:alice",  "login"),
+    ("order:1001",  "created"),
+    ("order:1001",  "payment_received"),
+    ("order:1001",  "shipped"),
+    ("user:bob",    "login"),
+    ("order:1002",  "created"),
+];
+
 var hostOpt        = new Option<string>("--host",         () => "localhost:50051", "gRPC address of the settled-server");
 var skipAppendOpt  = new Option<bool>  ("--skip-append",  "Skip appending demo entries");
 var verifyOpt      = new Option<bool>  ("--verify",       "Verify STH signature and inclusion proofs");
 var consistencyOpt = new Option<bool>  ("--consistency",  "Also verify consistency proof before→after append (requires --verify)");
 var getOpt         = new Option<int?>  ("--get",          "Fetch a single entry by sequence number");
-var watchOpt       = new Option<bool>  ("--watch",        "Tail new entries as they arrive");
-var intervalOpt    = new Option<double>("--interval",     () => 2.0, "Polling interval in seconds for --watch");
+var keyOpt         = new Option<string?>("--key",         "Fetch all entries for this key (paginated)");
+var batchOpt       = new Option<bool>  ("--batch",        "Append all demo entries in one BatchAppend call");
+var watchOpt       = new Option<bool>  ("--watch",        "Stream new entries via Watch RPC");
 
 var root = new RootCommand("Settled .NET Demo")
 {
-    hostOpt, skipAppendOpt, verifyOpt, consistencyOpt, getOpt, watchOpt, intervalOpt,
+    hostOpt, skipAppendOpt, verifyOpt, consistencyOpt, getOpt, keyOpt, batchOpt, watchOpt,
 };
 
 root.SetHandler(async ctx =>
@@ -43,18 +56,23 @@ root.SetHandler(async ctx =>
     var verify      = ctx.ParseResult.GetValueForOption(verifyOpt);
     var consistency = ctx.ParseResult.GetValueForOption(consistencyOpt);
     var getSeq      = ctx.ParseResult.GetValueForOption(getOpt);
+    var key         = ctx.ParseResult.GetValueForOption(keyOpt);
+    var batch       = ctx.ParseResult.GetValueForOption(batchOpt);
     var watch       = ctx.ParseResult.GetValueForOption(watchOpt);
-    var interval    = ctx.ParseResult.GetValueForOption(intervalOpt);
 
     Console.WriteLine($"Connecting to {host} …\n");
     using var client = new SettledClient($"http://{host}");
 
     if (watch)
-        await ModeWatch(client, verify, interval);
+        await ModeWatch(client, verify);
     else if (getSeq is not null)
         await ModeGet(client, (ulong)getSeq.Value, verify);
+    else if (key is not null)
+        await ModeGetByKey(client, key);
+    else if (batch)
+        await ModeBatchAppend(client, demoEntries);
     else
-        await ModeDefault(client, verify, consistency, skipAppend);
+        await ModeDefault(client, verify, consistency, skipAppend, demoEntries);
 });
 
 return await root.InvokeAsync(args);
@@ -92,7 +110,21 @@ static void PrintTable(IReadOnlyList<Entry> entries, Dictionary<ulong, bool>? ve
     }
 }
 
-// ── Verification helpers ───────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+static async Task<List<Entry>> FetchAllEntries(SettledClient client)
+{
+    var entries = new List<Entry>();
+    ulong cursor = 0;
+    while (true)
+    {
+        var page = await client.ListEntriesAsync(cursor: cursor);
+        entries.AddRange(page.Entries);
+        if (page.NextCursor == 0) break;
+        cursor = page.NextCursor;
+    }
+    return entries;
+}
 
 static async Task<Sth> WaitForSth(SettledClient client, ulong minSize = 1)
 {
@@ -171,12 +203,37 @@ static async Task ModeGet(SettledClient client, ulong seq, bool doVerify)
     Console.WriteLine(EntryRow(e, proofCol));
 }
 
-static async Task ModeWatch(SettledClient client, bool doVerify, double intervalSecs)
+static async Task ModeGetByKey(SettledClient client, string key)
 {
-    Console.WriteLine($"Watching for new entries (polling every {intervalSecs}s) … Ctrl-C to stop.\n");
-    ulong seq = 0;
-    try { var sth0 = await WaitForSth(client); seq = sth0.TreeSize; } catch { }
+    var entries = new List<Entry>();
+    ulong cursor = 0;
+    while (true)
+    {
+        var page = await client.GetByKeyAsync(Encoding.UTF8.GetBytes(key), cursor: cursor);
+        entries.AddRange(page.Entries);
+        if (page.NextCursor == 0) break;
+        cursor = page.NextCursor;
+    }
+    Console.WriteLine($"{entries.Count} entr{(entries.Count == 1 ? "y" : "ies")} for key \"{key}\":\n");
+    var header = TableHeader(false);
+    Console.WriteLine(header);
+    Console.WriteLine(new string('-', header.Length));
+    foreach (var e in entries) Console.WriteLine(EntryRow(e));
+}
 
+static async Task ModeBatchAppend(SettledClient client, (string Key, string Data)[] entries)
+{
+    Console.WriteLine($"Batch-appending {entries.Length} entries in one RPC call …");
+    var results = await client.BatchAppendAsync(
+        entries.Select(e => (Encoding.UTF8.GetBytes(e.Key), Encoding.UTF8.GetBytes(e.Data))));
+    for (int i = 0; i < results.Count; i++)
+        Console.WriteLine($"  seq={results[i].Seq}  key={entries[i].Key}  data={entries[i].Data}");
+    Console.WriteLine($"\nAll {results.Count} entries assigned seqs {results[0].Seq}–{results[^1].Seq} in a single WAL write.");
+}
+
+static async Task ModeWatch(SettledClient client, bool doVerify)
+{
+    Console.WriteLine("Streaming new entries via Watch RPC … Ctrl-C to stop.\n");
     Console.WriteLine(TableHeader(doVerify));
     Console.WriteLine(new string('-', TableHeader(doVerify).Length));
 
@@ -185,24 +242,24 @@ static async Task ModeWatch(SettledClient client, bool doVerify, double interval
 
     try
     {
-        while (!cts.Token.IsCancellationRequested)
+        await foreach (var e in client.WatchEntriesAsync(fromSeq: 0, ct: cts.Token))
         {
-            Sth sth;
-            try { sth = await WaitForSth(client); } catch { await Task.Delay(TimeSpan.FromSeconds(intervalSecs), cts.Token); continue; }
-            while (seq < sth.TreeSize)
+            string proofCol = "";
+            if (doVerify)
             {
-                var e = await client.GetAsync(seq, cts.Token);
-                string proofCol = "";
-                if (doVerify)
+                try
                 {
-                    var p  = await client.InclusionProofAsync(seq, sth.TreeSize, cts.Token);
-                    var ok = Verifier.VerifyInclusion(e.LeafHash, p.LeafIndex, p.TreeSize, p.Proof, sth.RootHash);
-                    proofCol = ok ? "  OK" : "  FAIL";
+                    var sth = await client.GetSthAsync(cancellationToken: cts.Token);
+                    if (e.Seq < sth.TreeSize)
+                    {
+                        var p  = await client.InclusionProofAsync(e.Seq, sth.TreeSize, cts.Token);
+                        var ok = Verifier.VerifyInclusion(e.LeafHash, p.LeafIndex, p.TreeSize, p.Proof, sth.RootHash);
+                        proofCol = ok ? "  OK" : "  FAIL";
+                    }
                 }
-                Console.WriteLine(EntryRow(e, proofCol));
-                seq++;
+                catch (OperationCanceledException) { break; }
             }
-            await Task.Delay(TimeSpan.FromSeconds(intervalSecs), cts.Token);
+            Console.WriteLine(EntryRow(e, proofCol));
         }
     }
     catch (OperationCanceledException) { }
@@ -210,18 +267,9 @@ static async Task ModeWatch(SettledClient client, bool doVerify, double interval
     Console.WriteLine("\nStopped.");
 }
 
-static async Task ModeDefault(SettledClient client, bool doVerify, bool doConsistency, bool skipAppend)
+static async Task ModeDefault(SettledClient client, bool doVerify, bool doConsistency, bool skipAppend,
+    (string Key, string Data)[] demoEntries)
 {
-    (string Key, string Data)[] demoEntries =
-    [
-        ("user:alice",  "login"),
-        ("order:1001",  "created"),
-        ("order:1001",  "payment_received"),
-        ("order:1001",  "shipped"),
-        ("user:bob",    "login"),
-        ("order:1002",  "created"),
-    ];
-
     Sth? oldSth = doConsistency ? await WaitForSth(client) : null;
 
     if (!skipAppend)
@@ -244,9 +292,7 @@ static async Task ModeDefault(SettledClient client, bool doVerify, bool doConsis
     }
 
     Console.WriteLine("Fetching audit trail …\n");
-    var entries = new List<Entry>();
-    for (ulong s = 0; s < sth.TreeSize; s++)
-        entries.Add(await client.GetAsync(s));
+    var entries = await FetchAllEntries(client);
 
     Dictionary<ulong, bool>? verified = null;
     if (doVerify)

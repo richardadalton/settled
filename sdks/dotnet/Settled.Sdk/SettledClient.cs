@@ -40,6 +40,13 @@ public sealed class InclusionProofResult
     public Sth Sth { get; init; } = new();
 }
 
+public sealed class GetByKeyResult
+{
+    public IReadOnlyList<Entry> Entries { get; init; } = [];
+    /// <summary>Pass as cursor in the next call. 0 = no more pages.</summary>
+    public ulong NextCursor { get; init; }
+}
+
 public sealed class GetLatestResult
 {
     public IReadOnlyList<Entry> Entries { get; init; } = [];
@@ -139,6 +146,30 @@ public sealed class SettledClient : IDisposable
             cancellationToken: ct);
         await foreach (var e in call.ResponseStream.ReadAllAsync(ct))
             yield return MapEntry(e);
+    }
+
+    /// <summary>
+    /// Return all entries for an exact key match, with cursor-based pagination.
+    /// cursor=0 starts from the beginning; limit=0 uses the server default (50).
+    /// NextCursor==0 in the result means no further pages.
+    /// </summary>
+    public async Task<GetByKeyResult> GetByKeyAsync(
+        byte[] key, ulong cursor = 0, uint limit = 0,
+        CancellationToken ct = default)
+    {
+        var res = await _stub.GetByKeyAsync(
+            new GetByKeyRequest
+            {
+                Key = Google.Protobuf.ByteString.CopyFrom(key),
+                Cursor = cursor,
+                Limit = limit,
+            },
+            headers: _headers, cancellationToken: ct);
+        return new GetByKeyResult
+        {
+            Entries = res.Entries.Select(MapEntry).ToArray(),
+            NextCursor = res.NextCursor,
+        };
     }
 
     /// <summary>
