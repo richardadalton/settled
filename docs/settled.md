@@ -1,7 +1,6 @@
 # Settled — Tamper-Evident Audit Log
 
-**Status:** Proposed  
-**Author:** POP Project
+**Status:** Current implementation reference
 
 ---
 
@@ -195,527 +194,274 @@ The tree update consumes less than 0.5% of the MMD window. Proof generation is n
 
 ## 6. The Wire Protocol
 
-### 6.1 gRPC (Primary)
+### 6.1 gRPC API
 
-Protocol Buffers definition (simplified):
+The server exposes a single gRPC service defined in `proto/settled.v1.proto`. The full proto is the canonical reference; a summary of every RPC follows.
 
 ```protobuf
 syntax = "proto3";
 package settled.v1;
 
 service SettledLog {
-  // Single-entry append
-  rpc Append(AppendRequest) returns (AppendResponse);
-
-  // High-throughput streaming append — client streams requests,
-  // server streams acknowledgments. Pipelining without round-trips.
-  rpc AppendStream(stream AppendRequest) returns (stream AppendResponse);
-
-  // Retrieve an entry with its inclusion proof
-  rpc Get(GetRequest) returns (GetResponse);
-
-  // Get an inclusion proof for a known sequence number
-  rpc GetInclusionProof(InclusionProofRequest) returns (InclusionProof);
-
-  // Prove tree(first) is a prefix of tree(second)
-  rpc GetConsistencyProof(ConsistencyProofRequest) returns (ConsistencyProof);
-
-  // Latest signed tree head
-  rpc GetSignedTreeHead(GetSTHRequest) returns (SignedTreeHead);
-
-  // Stream of signed tree heads as they are produced
-  rpc StreamTreeHeads(StreamSTHRequest) returns (stream SignedTreeHead);
+  rpc Append(AppendRequest)           returns (AppendResponse);
+  rpc BatchAppend(BatchAppendRequest) returns (BatchAppendResponse);
+  rpc Get(GetRequest)                 returns (GetResponse);
+  rpc GetLatest(GetLatestRequest)     returns (GetLatestResponse);
+  rpc GetByKey(GetByKeyRequest)       returns (GetByKeyResponse);
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc Watch(WatchRequest)             returns (stream Entry);
+  rpc GetSth(GetSthRequest)           returns (GetSthResponse);
+  rpc InclusionProof(InclusionProofRequest)     returns (InclusionProofResponse);
+  rpc ConsistencyProof(ConsistencyProofRequest) returns (ConsistencyProofResponse);
 }
+```
 
-message AppendRequest {
-  string key   = 1;   // application-defined key (max 512 bytes)
-  bytes  data  = 2;   // payload to commit (max 64KB)
-}
+**Default ports:** gRPC on `:50051`, admin HTTP on `:8080`.
 
+---
+
+### 6.2 Write RPCs
+
+#### `Append`
+
+Append a single entry. Returns immediately once the entry is durably written to the WAL.
+
+```protobuf
+message AppendRequest  { bytes key = 1; bytes data = 2; }
 message AppendResponse {
-  uint64 seq            = 1;   // assigned sequence number
-  int64  timestamp_ns   = 2;   // server-assigned nanosecond timestamp
-  bytes  leaf_hash      = 3;   // SHA-256(0x00 || data)
-  // proof available after next tree update (within MMD)
+  uint64 seq          = 1;   // assigned sequence number (0-based)
+  int64  timestamp_ns = 2;   // nanoseconds since Unix epoch
+  bytes  leaf_hash    = 3;   // SHA-256(0x00 || data)
+  bytes  key          = 4;   // echo of the request key, for async correlation
 }
+```
 
-message InclusionProof {
-  uint64         leaf_index = 1;
-  uint64         tree_size  = 2;
-  bytes          leaf_hash  = 3;
-  repeated bytes path       = 4;   // sibling hashes, leaf → root
-  SignedTreeHead head        = 5;
-}
+#### `BatchAppend`
 
-message ConsistencyProof {
-  uint64         first_size  = 1;
-  uint64         second_size = 2;
-  repeated bytes proof       = 3;
-  SignedTreeHead head         = 4;
+Append up to 1 000 entries atomically. All seqs are assigned contiguously and all entries land in a single RocksDB `WriteBatch` (one WAL sync). Returns one `AppendResponse` per entry in input order.
+
+```protobuf
+message BatchAppendRequest  { repeated AppendRequest  entries = 1; }
+message BatchAppendResponse { repeated AppendResponse entries = 1; }
+```
+
+---
+
+### 6.3 Read RPCs
+
+#### `Get`
+
+Retrieve a single entry by sequence number.
+
+```protobuf
+message GetRequest  { uint64 seq = 1; }
+message GetResponse { Entry entry = 1; }
+
+message Entry {
+  uint64 seq          = 1;
+  int64  timestamp_ns = 2;
+  bytes  key          = 3;
+  bytes  data         = 4;
+  bytes  leaf_hash    = 5;
 }
+```
+
+#### `GetLatest`
+
+Return the N most-recent entries, newest first. `n = 0` is treated as 1. Values above the server cap (`--max-get-latest`, default 1 000) are silently clamped. `total_available` tells callers whether the result was truncated.
+
+```protobuf
+message GetLatestRequest  { uint32 n = 1; }
+message GetLatestResponse {
+  repeated Entry entries       = 1;
+  uint64         total_available = 2;
+}
+```
+
+#### `GetByKey`
+
+Return all entries for an exact key match, oldest first, with cursor-based pagination. `cursor = 0` starts from the beginning of the log; `next_cursor = 0` in the response means no further pages. `limit = 0` uses the server default (50), capped at 1 000.
+
+```protobuf
+message GetByKeyRequest {
+  bytes  key    = 1;
+  uint64 cursor = 2;
+  uint32 limit  = 3;
+}
+message GetByKeyResponse {
+  repeated Entry entries     = 1;
+  uint64         next_cursor = 2;
+}
+```
+
+Backed by an O(1) index CF (`key → latest seq`) for the first lookup; subsequent pages scan forward from the cursor.
+
+#### `ListEntries`
+
+Return a seq-ordered page of entries within `[from_seq, to_seq)`. `to_seq = 0` means no upper bound. `cursor` overrides `from_seq` for subsequent pages. `limit = 0` uses the server default (50), capped at 1 000.
+
+```protobuf
+message ListEntriesRequest {
+  uint64 from_seq = 1;
+  uint64 to_seq   = 2;
+  uint64 cursor   = 3;
+  uint32 limit    = 4;
+}
+message ListEntriesResponse {
+  repeated Entry entries     = 1;
+  uint64         next_cursor = 2;
+}
+```
+
+---
+
+### 6.4 Streaming RPC
+
+#### `Watch`
+
+Server-streaming RPC that pushes entries as they are appended. The stream stays open until the client cancels it.
+
+- `from_seq = 0` — stream only entries appended after the watch is established (live-only).
+- `from_seq > 0` — replay all entries with seq ≥ from_seq, then continue live with no gap.
+
+```protobuf
+message WatchRequest { uint64 from_seq = 1; }
+// Response type: stream Entry (defined above)
+```
+
+If the subscriber falls more than 1 024 entries behind the broadcast buffer, the server closes the stream with `RESOURCE_EXHAUSTED` and the client should reconnect with the last received seq.
+
+---
+
+### 6.5 Proof and STH RPCs
+
+#### `GetSth`
+
+Retrieve a Signed Tree Head. `tree_size = 0` returns the latest.
+
+```protobuf
+message GetSthRequest  { uint64 tree_size = 1; }
+message GetSthResponse { SignedTreeHead sth = 1; }
 
 message SignedTreeHead {
-  uint64 tree_size  = 1;
-  bytes  root_hash  = 2;
-  int64  timestamp  = 3;
-  bytes  signature  = 4;
-  bytes  public_key = 5;
+  uint64 tree_size    = 1;
+  bytes  root_hash    = 2;
+  int64  timestamp_ns = 3;
+  bytes  signature    = 4;   // Ed25519 over the signing payload
+  bytes  public_key   = 5;
+  uint32 key_version  = 6;
 }
 ```
 
-gRPC is the primary protocol. Generated stubs provide type-safe clients in every supported language with no hand-written serialisation code.
+#### `InclusionProof`
 
-### 6.2 REST + JSON (Secondary)
+Return an RFC 6962 inclusion proof for `seq` against `tree_size` (0 = latest STH).
 
-A thin REST layer (served on a separate port, default 8080) for environments where gRPC is awkward (browser, serverless, simple scripts):
-
-```
-POST   /v1/append                  → AppendResponse
-GET    /v1/entries/:seq            → GetResponse
-GET    /v1/proof/inclusion/:seq    → InclusionProof
-GET    /v1/proof/consistency/:a/:b → ConsistencyProof
-GET    /v1/sth                     → SignedTreeHead (latest)
-GET    /v1/sth/:tree_size          → SignedTreeHead (historical)
-GET    /v1/sth/stream              → SSE stream of SignedTreeHeads
+```protobuf
+message InclusionProofRequest  { uint64 seq = 1; uint64 tree_size = 2; }
+message InclusionProofResponse {
+  uint64 leaf_index    = 1;
+  uint64 tree_size     = 2;
+  repeated bytes proof = 3;   // O(log n) sibling hashes
+  SignedTreeHead sth   = 4;
+}
 ```
 
-The REST layer is implemented via `grpc-gateway` or a thin Axum handler — it adds minimal overhead and shares all business logic with the gRPC path.
+#### `ConsistencyProof`
+
+Prove that `old_size` is a prefix of `new_size` (0 = latest STH). `old_size` must be > 0.
+
+```protobuf
+message ConsistencyProofRequest  { uint64 old_size = 1; uint64 new_size = 2; }
+message ConsistencyProofResponse {
+  uint64 old_size      = 1;
+  uint64 new_size      = 2;
+  repeated bytes proof = 3;
+  SignedTreeHead old_sth = 4;
+  SignedTreeHead new_sth = 5;
+}
+```
 
 ---
 
-## 7. SDK Design
+### 6.6 Pagination conventions
 
-### 7.1 Generated vs Handwritten
+All paginated RPCs (`GetByKey`, `ListEntries`) use the same cursor pattern:
 
-The gRPC stub layer is fully generated from the proto file. The SDK wraps the generated stub with:
-- Connection management and reconnection
-- Streaming append with configurable batch size and flush interval
-- Client-side proof verification (critical — this must run locally, never on the server)
-- Signed tree head caching and staleness detection
+- First request: omit `cursor` (or set to 0) — starts from the beginning of the range.
+- Subsequent requests: pass `next_cursor` from the previous response as `cursor`.
+- End of results: `next_cursor = 0` in the response.
 
-### 7.2 TypeScript SDK
-
-```typescript
-import { SettledClient } from '@daltonr/settled-sdk';
-
-const client = new SettledClient({
-  url: 'grpc://localhost:9000',
-  // For mutual TLS in production:
-  // tls: { cert, key, ca }
-});
-
-// Single append — returns proof handle
-const receipt = await client.append('trade-001', sha256(record));
-// receipt.seq, receipt.timestamp, receipt.leafHash
-
-// Wait for proof to be available (within MMD)
-const proof = await receipt.awaitProof();
-
-// Verify locally — no server contact, pure crypto
-const valid = client.verify(sha256(record), proof);
-
-// High-throughput streaming append
-const stream = client.appendStream({ 
-  batchSize: 1000, 
-  flushIntervalMs: 50 
-});
-stream.write('trade-002', sha256(record2));
-stream.write('trade-003', sha256(record3));
-const receipts = await stream.flush();
-
-// Consistency check — prove nothing was rewritten since last audit
-const consistent = await client.verifyConsistency(
-  savedTreeHead,       // what you had last time
-  await client.getSignedTreeHead()   // current
-);
-```
-
-The `verify` and `verifyConsistency` methods are pure functions over `crypto.subtle` — they make no network calls and cannot be subverted by a compromised server.
-
-### 7.3 SDK Languages and Delivery
-
-| Language | Delivery | Generator |
-|----------|----------|-----------|
-| TypeScript/Node.js | `@settled/client` on npm | `ts-proto` + handwritten verify layer |
-| Python | `settled-client` on PyPI | `grpcio-tools` + handwritten verify layer |
-| Go | `github.com/settled/settled-go` | `protoc-gen-go` + handwritten verify layer |
-| Java/Kotlin | Maven Central | `protoc-gen-grpc-java` + verify layer |
-| Rust | `settled-sdk` on crates.io | `tonic-build` + handwritten verify layer |
-| .NET | NuGet | `Grpc.Tools` + verify layer |
-
-The proof verification logic — the Merkle path computation — is implemented once in Rust as a `settled-core` crate, then exposed to other languages via:
-- Native bindings (Node.js via `napi-rs`, Python via `PyO3`)
-- Or re-implemented in idiomatic language code following the same test vectors
-
-Test vectors are published in the repo. Any SDK implementation must pass all vectors before release.
-
-### 7.4 WASM Build
-
-`settled-core` (the Merkle verification library) compiles to WebAssembly. This enables:
-- **Browser-side proof verification** — a web app can verify a proof against a stored signed tree head without any server call
-- **Edge function verification** (Cloudflare Workers, Deno Deploy)
-- **Embedded use cases** where native binaries are unavailable
-
-No existing tamper-evident log product supports browser-native proof verification. This is a meaningful differentiator.
+Since seqs are 0-based and monotonically increasing, `next_cursor = 0` is unambiguous — 0 is a valid seq, but the cursor always points to the *next* seq to read (i.e. last returned + 1), so 0 can only appear when the log is exhausted.
 
 ---
 
-## 8. Throughput Design
+### 6.7 gRPC Reflection
 
-### 8.1 Why Previous Approaches Failed
+The server registers the standard [gRPC server reflection](https://grpc.io/docs/guides/reflection/) service. `grpcurl` works without a local proto file:
 
-Immudb 1.1.0 with the Node.js SDK gave us ~6K records/sec. The bottlenecks were:
-
-1. **`setAll` transaction latency ~250ms** — each call is a full Immudb transaction, synchronously committed before returning
-2. **drain-before-commit constraint** — Kafka offsets would not advance until all writes flushed, so evaluation throughput was capped by write throughput
-3. **No pipelining** — one outstanding write at a time per batch
-
-Settled eliminates all three:
-
-1. Write acknowledgment comes after WAL write (~50 microseconds), not after tree update
-2. The Kafka consumer can commit offsets after WAL acknowledgment; tree proof availability follows within the MMD
-3. The streaming gRPC endpoint pipelines thousands of writes concurrently
-
-### 8.2 Throughput Model
-
-Single Settled node, NVMe SSD, 8-core server:
-
-| Component | Throughput | Notes |
-|-----------|-----------|-------|
-| gRPC receive | ~2M req/sec | Tonic benchmark |
-| WAL write | ~800K/sec | Sequential RocksDB writes |
-| Tree update | ~10M leaves/sec | SHA-256 AVX2, batched |
-| Ed25519 sign | ~70K/sec | Once per MMD, not per entry |
-| gRPC respond | ~2M/sec | |
-| **Net sustained** | **~500K entries/sec** | WAL is the bottleneck |
-
-For the full\_system example (35K/sec generator): a single Settled node at less than 10% capacity.
-
-### 8.3 Horizontal Scaling
-
-For throughputs beyond a single node, Settled partitions by key prefix. A consistent-hash ring of N nodes each handles 1/N of the key space. Clients use a thin routing layer (or the SDK handles it transparently). Each partition maintains its own Merkle tree; cross-partition consistency proofs use a root-of-roots structure.
-
-This is a v2 feature. At 500K/sec per node, most use cases never need it.
-
-### 8.4 Durability vs Throughput Knob
-
-For applications where throughput matters more than strict per-entry durability:
-
-```typescript
-const client = new SettledClient({
-  url: 'grpc://localhost:9000',
-  durability: 'wal',        // default: durable after WAL write
-  // durability: 'memory',  // fastest: ack after memory write, periodic WAL flush
-  // durability: 'proof',   // strictest: ack only after proof available
-});
+```sh
+grpcurl -plaintext localhost:50051 list settled.v1.SettledLog
+grpcurl -plaintext -d '{"tree_size":0}' localhost:50051 settled.v1.SettledLog/GetSth
 ```
-
-The `wal` default gives the right balance for compliance use cases: entries survive crashes, proofs follow within the MMD. The `proof` mode is equivalent to Immudb's drain-before-commit and has the same throughput characteristics — it exists for applications that need it but is not the default.
 
 ---
 
-## 9. Security Model
+## 7. SDK Overview
 
-### 9.1 What the Cryptography Guarantees
+Six first-party SDKs are published and kept in sync with the proto. Each ships a gRPC client and a standalone verifier that runs locally with no server contact.
+
+| Language | Registry | Package |
+|----------|----------|---------|
+| TypeScript | npm | `@daltonr/settled-sdk` |
+| Python | PyPI | `settled-sdk` |
+| Go | pkg.go.dev | `github.com/richardadalton/settled/sdks/go` |
+| Java | Maven Central | `io.github.richardadalton:settled-sdk` |
+| Rust | crates.io | `settled-sdk` |
+| .NET | NuGet | `Settled.Sdk` |
+
+All six implement the full RPC surface: Append, BatchAppend, Get, GetLatest, GetByKey, ListEntries, Watch (streaming), GetSth, InclusionProof, ConsistencyProof.
+
+See the `sdks/` directory and `docs/publishing/` for per-language publishing and usage details.
+
+---
+
+## 8. Security Model
+
+### 8.1 What the Cryptography Guarantees
 
 - **Inclusion** — an entry returned with a valid inclusion proof was committed to the log. A server cannot fabricate a valid proof for an entry it did not receive.
 - **Append-only** — a valid consistency proof from STH₁ to STH₂ proves no entries before STH₁ were altered or removed. History cannot be silently rewritten.
-- **Non-equivocation** — a server cannot show different trees to different clients without detection, as long as at least one client publishes the signed tree heads it receives.
+- **Non-equivocation** — a server cannot show different trees to different clients without detection, provided at least one client publishes the signed tree heads it receives.
 
-### 9.2 What the Cryptography Does Not Guarantee
+### 8.2 What the Cryptography Does Not Guarantee
 
-- **Availability** — a server can refuse to serve entries or proofs. Settled does not prevent denial of service.
+- **Availability** — a server can refuse to serve entries or proofs.
 - **Liveness** — a server can stop accepting new entries.
-- **Complete independence from the server operator** — if the signing key is compromised, a server operator can sign fraudulent tree heads. Mitigated by publishing signed tree heads to an independent verifier service.
+- **Complete independence from the server operator** — if the signing key is compromised, a server operator can sign fraudulent tree heads. Mitigated by publishing signed tree heads to an independent external verifier (settled-node).
 
-### 9.3 Key Management
+### 8.3 Key Management
 
-The Ed25519 signing key is generated at first startup and stored in RocksDB. For production deployments it should be stored in a hardware security module (HSM) or cloud KMS (AWS KMS, GCP Cloud HSM). The server supports a `--kms-provider` flag for pluggable key backends.
+The Ed25519 signing key is generated at first startup and stored at `--key-path` (default `<data-dir>/signing.key`). Hot key rotation is supported via `POST /api/rotate-key` on the admin HTTP port; the old public key remains in the key store so old STHs remain verifiable. All signed tree heads embed `key_version` so verifiers select the correct public key automatically.
 
-The public key is included in every signed tree head. Clients that cache old signed tree heads can verify new ones without contacting a key server.
+### 8.4 Authentication
 
-### 9.4 TLS
-
-All gRPC connections are TLS by default. Mutual TLS is supported for environments that require client certificate authentication. The Docker image ships with a self-signed cert for development; production deployments should provide their own.
-
-### 9.5 Authentication and Authorisation
-
-Settled does not implement application-level auth. It delegates to:
-- **mTLS** for transport-level identity
-- **A sidecar proxy** (Envoy, Nginx) for API key or JWT validation
-
-This keeps the server simple and correct. Auth is a solved problem; tamper-evident logs are not.
+The server enforces a shared API key when `--api-key` (or `$SETTLED_API_KEY`) is set. Clients must include `authorization: Bearer <key>` on every gRPC request. The gRPC reflection service is also protected by the same key when auth is enabled.
 
 ---
 
-## 10. Deployment
-
-### 10.1 Single Container (Default)
-
-```yaml
-services:
-  settled:
-    image: settled/settled:latest
-    ports:
-      - "9000:9000"   # gRPC
-      - "8080:8080"   # REST + SSE
-    volumes:
-      - settled_data:/data
-    environment:
-      SETTLED_DATA_DIR: /data
-      SETTLED_MMD_MS: 100
-      SETTLED_MAX_ENTRY_BYTES: 65536
-      SETTLED_LOG_LEVEL: info
-    healthcheck:
-      test: ["CMD", "settled-ctl", "status"]
-      interval: 10s
-
-volumes:
-  settled_data:
-```
-
-No external dependencies. One container, one volume. The RocksDB data directory is the entire state of the system.
-
-### 10.2 External Verifiers — Making Recreation Impossible
-
-This is the feature that completes the security model. Without it, an attacker with full server access can delete the database, reconstruct it with falsified records, and produce new signed tree heads. With external verifiers, they cannot — because the root hash is a deterministic function of the data, not of the signing key.
-
-**The mechanism:**
-
-When the server produces `STH(N)` with `root_hash=X` and pushes it to registered external verifiers, those settledes hold cryptographic proof of what the log contained at that point. If the database is ever deleted and reconstructed with different data, the new `STH(N)` will have `root_hash=Y ≠ X`. Any registered settled can detect this immediately by comparing what they received against what the server now claims.
-
-The signing key does not help the attacker. They can sign the fraudulent tree head with the original key, but `root_hash` is determined by the data. The signature proves authorship; the root hash proves content. Only the content check matters for detecting reconstruction.
-
-**Registered settledes:**
-
-Each external verifier is registered with the server via the admin API:
-
-```
-POST /v1/admin/settledes
-{
-  "name":        "Compliance Officer",
-  "url":         "https://compliance.example.com/settled-inbox",
-  "public_key":  "ed25519:<base64>",   // settled's own Ed25519 public key
-  "push_interval_ms": 5000
-}
-```
-
-The server maintains a verifier registry in RocksDB. On each STH publication cycle, it pushes the signed tree head to every registered settled URL. The push is authenticated — the server signs the push payload with its own key; the verifier verifies before archiving.
-
-The `public_key` in the registration is the verifier's own key, used for the optional **counter-signature** feature described below.
-
-**What a verifier receives:**
-
-```json
-{
-  "sth": {
-    "tree_size":  1000000,
-    "root_hash":  "sha256:<base64>",
-    "timestamp":  1713362400000000000,
-    "signature":  "ed25519:<base64>",
-    "public_key": "ed25519:<base64>"
-  },
-  "server_id":   "settled-prod-01.example.com",
-  "push_seq":    4721
-}
-```
-
-The settled archives this. That is the entire settled responsibility — receive and store.
-
-**Verification by a verifier:**
-
-At any point in the future, a verifier can check whether the log is consistent with what they received:
-
-```
-GET /v1/proof/consistency/{their_tree_size}/{current_tree_size}
-```
-
-This returns a consistency proof. The settled verifies it locally against their archived root hash. If it fails — or if the server cannot produce a proof at all — the log has been tampered with or reconstructed.
-
-This check requires no trust in the server. It is pure Merkle verification against the verifier's own archived data.
-
-**The settled CLI:**
-
-The TypeScript SDK ships a `settled-check` CLI:
-
-```bash
-# Check consistency between archived STH and current server state
-settled-check verify \
-  --server grpc://settled.example.com:9000 \
-  --sth ./archived-sth-2026-04-17.json
-
-# Output:
-# ✓ Consistent. Log grew from 1,000,000 to 4,721,088 entries.
-#   No entries have been removed or altered.
-
-# Or on failure:
-# ✗ INCONSISTENT. Server cannot prove consistency from tree_size=1,000,000.
-#   The log may have been reconstructed after 2026-04-17T14:00:00Z.
-```
-
-**Threshold counter-signatures (optional, maximum security):**
-
-For the highest security tier, configure N registered verifiers to counter-sign each tree head. The server collects M-of-N counter-signatures before publishing the STH as final:
-
-```yaml
-environment:
-  SETTLED_THRESHOLD_M: 2
-  SETTLED_THRESHOLD_N: 3
-```
-
-With threshold signing:
-- A tree head is only considered final when M settledes have independently signed it
-- An attacker who controls the server but not the verifier keys cannot produce a valid final STH for falsified data
-- The signing key compromise is no longer sufficient — the attacker must also compromise M independent settled key holders
-
-The counter-signature protocol:
-
-```
-1. Server produces candidate STH
-2. Server pushes candidate to all N settledes
-3. Each settled verifies the candidate is consistent with their archived STHs
-4. Each settled that accepts returns a counter-signature (Ed25519 over the STH bytes)
-5. Server collects M signatures, bundles them into the FinalSTH
-6. FinalSTH is published and accepted by clients
-
-FinalSTH {
-  sth:                  SignedTreeHead
-  counter_signatures:   [{ settled_id, signature, public_key }, ...]   // M of them
-}
-```
-
-Clients configured with threshold verification reject any STH that does not carry M valid counter-signatures from registered verifiers. A server operator acting alone cannot forge a FinalSTH — they need M colluding settledes.
-
-**Deployment example with three settledes:**
-
-```yaml
-services:
-  settled-server:
-    image: settled/settled:latest
-    environment:
-      SETTLED_THRESHOLD_M: 2
-      SETTLED_THRESHOLD_N: 3
-      SETTLED_PUSH_INTERVAL_MS: 5000
-
-  # Each runs in an independent trust domain — different org, different cloud, different team
-  settled-a:
-    image: settled/settled-node:latest
-    environment:
-      SETTLED_ROLE: external
-      SETTLED_ARCHIVE_DIR: /archive-a
-    volumes:
-      - settled_archive_a:/archive-a
-
-  settled-b:
-    image: settled/settled-node:latest
-    environment:
-      SETTLED_ROLE: external
-      SETTLED_ARCHIVE_DIR: /archive-b
-    volumes:
-      - settled_archive_b:/archive-b
-
-  settled-c:
-    image: settled/settled-node:latest
-    environment:
-      SETTLED_ROLE: external
-      SETTLED_ARCHIVE_DIR: /archive-c
-    volumes:
-      - settled_archive_c:/archive-c
-```
-
-In a real deployment, settledes A, B, and C would run in completely separate environments — different cloud accounts, different organisations, different geographies. The security guarantee scales with the independence of the verifieres.
-
-### 10.3 Backup and Recovery
-
-The entire log is in the RocksDB data directory. Backup is a filesystem snapshot or `rocksdb::BackupEngine` call. Recovery from backup restores all entries and the full Merkle tree history. The tree can also be fully recomputed from just the `log` column family if the `tree` column family is corrupted.
-
----
-
-## 11. Relation to POP
-
-Settled is a standalone product with no dependency on POP. Any application can use it.
-
-Within the POP ecosystem, it replaces `ImmudbWriter` as the tamper-proof audit backend. The `AuditEntry` produced by every POP program maps cleanly to a Settled entry:
-
-```typescript
-const receipt = await settled.append(
-  entry.entryId,
-  sha256(JSON.stringify(entry))
-);
-```
-
-The `PROGRAM_HASH` and `pluginHash` from POP's provenance model can be stored as entry metadata, enabling queries like "show me all decisions made by policy version X" via the `index` column family.
-
-`verify.ts` becomes: fetch entry from Postgres, fetch proof from Settled, verify locally. The verification is pure crypto — no server trust.
-
----
-
-## 12. Build Milestones
-
-### M1 — Core Rust library (2 days)
-- Binary Merkle tree: append, inclusion proof, consistency proof
-- Ed25519 sign and verify
-- SHA-256 leaf and node hashing per RFC 6962
-- Full test suite with RFC 6962 test vectors
-- WASM build target
-
-### M2 — Server (2 days)
-- RocksDB storage: log, tree, heads, index column families
-- WAL append with fsync
-- Background tree builder with configurable MMD
-- gRPC server (tonic): Append, Get, GetInclusionProof, GetConsistencyProof, GetSignedTreeHead
-- AppendStream for high-throughput pipelined clients
-
-### M3 — REST layer and Docker (1 day)
-- Axum HTTP handler for all gRPC endpoints
-- SSE stream for tree heads
-- Docker image with health check and graceful shutdown
-- docker-compose example
-
-### M4 — TypeScript SDK (1 day)
-- Generated gRPC stubs via ts-proto
-- SettledClient with connection management
-- Client-side proof verification (calls WASM core or reimplements in TS)
-- appendStream with batching and back-pressure
-- Full test suite against live server
-
-### M5 — Additional SDKs (2 days)
-- Python: grpcio-tools generated + PyO3 bindings to Rust verify
-- Go: protoc-gen-go + native Go verify implementation
-- Java: protoc-gen-grpc-java + verify
-- Test vectors shared across all SDKs
-
-### M6 — External settled protocol (1 day)
-- Settled registry: register/list/remove endpoints via admin API
-- STH push loop: push to all registered verifiers on each MMD cycle
-- Settled-side archive service: receive and store STHs
-- `settled-check` CLI: verify consistency against archived STH
-- Threshold counter-signature protocol (M-of-N)
-- `settled-node` Docker image for running an independent settled
-
-### M7 — Replace ImmudbWriter in full_system (half day)
-- SettledWriter implementing the same enqueue/drain interface
-- verify.ts updated to use SettledClient
-- Immudb container removed from docker-compose
-
-### M8 — Performance validation (1 day)
-- Benchmark: sustained throughput (target 500K/sec)
-- Benchmark: write latency p50/p99 under load
-- Benchmark: proof generation throughput
-- Grafana dashboard for Settled metrics
-
-**Total: ~10 days for a genuinely production-grade v1 with multi-language SDKs.**
-
----
-
-## 13. Open Questions
-
-1. **Key rotation** — how does a client verify proofs against historical signed tree heads when the signing key has been rotated? Needs a key history log or certificate chain approach.
-
-2. **Entry size limit** — 64KB default. Should large payloads be stored by hash reference only (store the hash in Settled, store the payload elsewhere)?
-
-3. **Retention** — the log is append-only and grows forever. Settled does not support deletion. Archival to cold storage (S3 Glacier) with proof-of-archive needs specifying.
-
-4. **Multi-tenancy** — should a single Settled instance serve multiple isolated logs (different signing keys, different trees)? Useful for SaaS deployments. Implemented as named log instances.
-
-5. **Sequencing guarantees** — currently best-effort ordering within the MMD window. Applications that require strict causal ordering need a sequencing protocol (Raft/Paxos). Out of scope for v1.
+## 9. Deployment
+
+See [`docs/deployment.md`](deployment.md) for the full deployment guide, including Docker, systemd, configuration flags, and admin HTTP endpoints.
+
+The admin HTTP server (default `:8080`) exposes:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Liveness check |
+| `GET /metrics` | Prometheus metrics |
+| `GET /api/sth` | Current signed tree head |
+| `GET /api/stats` | Entry count, tree size, last STH timestamp |
+| `POST /api/sth/force` | Trigger immediate STH signing |
+| `GET /api/keys` | All signing key records |
+| `POST /api/rotate-key` | Rotate the active signing key |

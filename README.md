@@ -105,6 +105,25 @@ Open [http://localhost:5173](http://localhost:5173). Enter a key and some data, 
 
 The **Key** is a correlation identifier, not a unique constraint. Use it to group related records — a user ID, order ID, or product ID that will have many entries over time. The server indexes by key so you can efficiently retrieve the most recent entry for any given entity.
 
+## API surface
+
+The server exposes ten gRPC RPCs:
+
+| RPC | Description |
+|-----|-------------|
+| `Append` | Append one entry; returns seq, timestamp, leaf hash, and key echo |
+| `BatchAppend` | Append up to 1 000 entries atomically in one WAL write |
+| `Get` | Retrieve a single entry by seq |
+| `GetLatest` | Return the N most-recent entries (newest first); includes `total_available` |
+| `GetByKey` | All entries for an exact key, cursor-paginated |
+| `ListEntries` | Seq-range scan with cursor pagination |
+| `Watch` | Server-streaming live feed; `from_seq > 0` replays history then goes live |
+| `GetSth` | Signed Tree Head (latest or at a given tree size) |
+| `InclusionProof` | RFC 6962 inclusion proof for any entry |
+| `ConsistencyProof` | RFC 6962 consistency proof between two tree sizes |
+
+gRPC reflection is enabled — `grpcurl` works without a local proto file. See [`docs/settled.md`](docs/settled.md) for the full protocol reference.
+
 ## Architecture overview
 
 Settled is built in three layers. The core cryptographic library (`settled-core`) implements the RFC 6962 Merkle tree, proof generation and verification, and Ed25519 signing — with no I/O dependencies. The storage layer (`settled-storage`) wraps RocksDB with five column families: an append-only entry log, a materialised tree node cache, a signed tree head history, a key-to-sequence index, and a key rotation record. The server (`settled-server`) exposes this over gRPC using Tokio and Tonic, decoupling write acknowledgement (WAL commit) from proof availability (background STH signing task). Six first-party SDKs — TypeScript, Python, Go, Java, Rust, and .NET — each ship their own gRPC client and a standalone verifier that can check proofs locally with no server connection.

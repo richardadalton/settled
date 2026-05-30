@@ -2,7 +2,7 @@
 
 **Registry:** [pypi.org](https://pypi.org)
 **Package:** `settled-sdk`
-**Current version:** `0.1.0`
+**Current version:** `0.2.0`
 
 ---
 

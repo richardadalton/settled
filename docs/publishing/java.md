@@ -3,7 +3,7 @@
 **Registry:** [Maven Central](https://central.sonatype.com)
 **Group ID:** `io.github.richardadalton`
 **Artifact ID:** `settled-sdk`
-**Current version:** `0.1.0`
+**Current version:** `0.2.0`
 
 ---
 
@@ -79,7 +79,7 @@ curl -s https://repo.maven.apache.org/maven2/io/github/richardadalton/settled-sd
 
 **Gradle:**
 ```groovy
-implementation 'io.github.richardadalton:settled-sdk:0.1.0'
+implementation 'io.github.richardadalton:settled-sdk:0.2.0'
 ```
 
 **Maven:**
@@ -87,6 +87,6 @@ implementation 'io.github.richardadalton:settled-sdk:0.1.0'
 <dependency>
   <groupId>io.github.richardadalton</groupId>
   <artifactId>settled-sdk</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```

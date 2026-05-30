@@ -2,7 +2,7 @@
 
 **Registry:** [pkg.go.dev](https://pkg.go.dev) (via GitHub — no account required)
 **Module:** `github.com/richardadalton/settled/sdks/go`
-**Current version:** `v0.1.0`
+**Current version:** `v0.2.0`
 
 Go modules are published by pushing a git tag. There is no separate upload step — the Go module proxy fetches directly from GitHub.
 
@@ -57,7 +57,7 @@ Or check [pkg.go.dev/github.com/richardadalton/settled/sdks/go](https://pkg.go.d
 ## Consumer usage
 
 ```sh
-go get github.com/richardadalton/settled/sdks/go@v0.1.0
+go get github.com/richardadalton/settled/sdks/go@v0.2.0
 ```
 
 ```go

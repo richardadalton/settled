@@ -2,7 +2,7 @@
 
 **Registry:** [nuget.org](https://www.nuget.org)
 **Package:** `Settled.Sdk`
-**Current version:** `0.1.0`
+**Current version:** `0.2.0`
 
 ---
 
