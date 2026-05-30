@@ -320,7 +320,30 @@ Exit code 0 means all verifications passed. Exit code 1 means verification faile
 | 8080 | settled-server admin | HTTP | Internal only — do not expose publicly |
 | 8181 | settled-node | HTTP | Reachable from the main server |
 
-The admin port (`8080`) exposes the settled-node registry (add/remove witnesses) and Prometheus metrics. It should be firewalled to the local host or internal network. It does not require authentication.
+The admin port (`8080`) exposes the settled-node registry (add/remove witnesses), Prometheus metrics, and operational endpoints. It should be firewalled to the local host or internal network. It does not require authentication.
+
+### Admin HTTP endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Returns `200 OK` when the server is up |
+| `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/api/sth` | Latest signed tree head as JSON; `204` if none yet |
+| `GET` | `/api/stats` | Entry count, tree size, and last STH timestamp |
+| `POST` | `/api/sth/force` | Trigger an immediate STH signing cycle; returns the new STH |
+| `GET` | `/api/keys` | All signing key records in version-ascending order |
+| `POST` | `/api/rotate-key` | Generate a new signing key and hot-swap the active signer |
+
+```sh
+# Check the latest signed tree head
+curl http://localhost:8080/api/sth
+
+# Check log statistics
+curl http://localhost:8080/api/stats
+
+# Force an immediate STH signing (useful after a bulk import)
+curl -X POST http://localhost:8080/api/sth/force
+```
 
 The gRPC port (`50051`) is the endpoint application SDKs connect to. Expose it to your application network. Use a TLS-terminating proxy (nginx, Envoy) in front of it if clients are on untrusted networks.
 

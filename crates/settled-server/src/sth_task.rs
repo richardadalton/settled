@@ -33,7 +33,7 @@ pub async fn run(state: AppState, mut shutdown: tokio::sync::watch::Receiver<boo
     }
 }
 
-fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
+pub fn sign_and_store(state: &AppState) -> anyhow::Result<()> {
     // Snapshot tree state without holding the lock during signing.
     let (tree_size, root_hash) = {
         let mu = state.append_mu.lock().unwrap();
